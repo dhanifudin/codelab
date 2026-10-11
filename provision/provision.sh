@@ -5,7 +5,8 @@ set -euo pipefail
 
 SITE=${1:?usage: provision.sh <site>}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SITE_DIR="$HERE/../sites/$SITE"
+ROOT_DIR=$(cd "$HERE/.." && pwd)
+SITE_DIR="$ROOT_DIR/sites/$SITE"
 [ -f "$SITE_DIR/site.conf" ] || { echo "no such site: $SITE" >&2; exit 1; }
 
 # shellcheck source=lib.sh
@@ -14,8 +15,9 @@ source "$HERE/lib.sh"
 source "$SITE_DIR/site.conf"
 
 require_root
-export SITE_DIR HERE
-export SITE DOMAIN APP_REPO PHP_VERSION DEPLOY_USER WEB_GROUP BASE KEEP_RELEASES DB_NAME DB_USER POOL_NAME
+: "${SERVER_NAMES:=$DOMAIN}" "${TLS:=none}" "${DISABLE_STOCK_POOL:=0}" "${PHP_EXTENSIONS:=fpm cli common mysql zip mbstring xml curl intl}"
+export SITE_DIR HERE ROOT_DIR
+export SITE DOMAIN SERVER_NAMES APP_REPO PHP_VERSION DEPLOY_USER WEB_GROUP BASE KEEP_RELEASES DB_NAME DB_USER POOL_NAME TLS DISABLE_STOCK_POOL PHP_EXTENSIONS
 
 for step in "$HERE"/[0-9][0-9]-*.sh; do
     log "== $(basename "$step")"

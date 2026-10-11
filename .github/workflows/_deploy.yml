@@ -1,0 +1,156 @@
+name: Deploy site (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      site:
+        description: Directory name under sites/
+        required: true
+        type: string
+      ref:
+        description: Branch, tag or SHA of the app repo (defaults to the dispatched sha, else main)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    concurrency:
+      group: deploy-${{ inputs.site }}
+      cancel-in-progress: false
+    steps:
+      - name: Validate site name
+        env:
+          SITE: ${{ inputs.site }}
+        run: |
+          [[ "$SITE" =~ ^[a-z0-9-]+$ ]] || { echo "bad site name" >&2; exit 1; }
+          echo "SITE=$SITE" >> "$GITHUB_ENV"
+
+      - name: Checkout codelab (ops)
+        uses: actions/checkout@v4
+
+      - name: Load site config
+        run: |
+          # shellcheck source=/dev/null
+          set -a; . "sites/${SITE}/site.conf"; set +a
+          {
+            echo "DOMAIN=$DOMAIN"
+            echo "APP_REPO=$APP_REPO"
+            echo "PHP_VERSION=$PHP_VERSION"
+            echo "BASE=$BASE"
+            echo "NODE_BUILD=${NODE_BUILD:-0}"
+            echo "NODE_VERSION=${NODE_VERSION:-22}"
+            echo "PKG_MANAGER=${PKG_MANAGER:-npm}"
+            echo "SMOKE_PATH=${SMOKE_PATH:-/}"
+            echo "SMOKE_SCHEME=${SMOKE_SCHEME:-http}"
+          } >> "$GITHUB_ENV"
+
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.APP_REPO }}
+          # Public apps need no token; private ones need APP_READ_TOKEN (fine-grained PAT, Contents: read).
+          token: ${{ secrets.APP_READ_TOKEN || github.token }}
+          ref: ${{ github.event.client_payload.sha || inputs.ref || 'main' }}
+          path: app
+
+      - name: Resolve release id
+        working-directory: app
+        run: echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: gd, zip, mbstring, xml, pdo_mysql, intl, bcmath
+          tools: composer:v2
+
+      - name: Composer install
+        working-directory: app
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+      - uses: actions/setup-node@v4
+        if: env.NODE_BUILD == '1'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build frontend assets
+        if: env.NODE_BUILD == '1'
+        working-directory: app
+        run: |
+          if [ "$PKG_MANAGER" = pnpm ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+            pnpm run build
+          else
+            npm ci --no-audit --no-fund
+            npm run build
+          fi
+
+      - name: Render .env
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: |
+          # Export only this site's secrets and variables (<SITE>_*); values stay in this step's process.
+          prefix="${SITE^^}_"
+          while IFS=$'\t' read -r k v; do
+            export "$k=$v"
+          done < <(jq -r --arg p "$prefix" \
+            'to_entries[] | select(.key | startswith($p)) | select(.value | contains("\n") | not) | "\(.key)\t\(.value)"' \
+            <<<"$SECRETS_JSON"$'\n'"$VARS_JSON" )
+          umask 077
+          scripts/render-env.sh "$SITE" > "$RUNNER_TEMP/site.env"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Upload release
+        run: |
+          rsync -az --delete --exclude-from="sites/${SITE}/rsync-exclude.txt" \
+            app/ "vps:${BASE}/releases/${SHA}/"
+          rsync -az "$RUNNER_TEMP/site.env" "vps:${BASE}/shared/.env"
+
+      - name: Activate
+        id: activate
+        run: ssh vps "bash -s -- ${SITE} ${SHA}" < scripts/remote/activate.sh
+
+      - name: Smoke test (straight to the origin)
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          port=80; [ "$SMOKE_SCHEME" = https ] && port=443
+          code=000
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              --resolve "${DOMAIN}:${port}:${SSH_HOST}" "${SMOKE_SCHEME}://${DOMAIN}${SMOKE_PATH}" || true)
+            [ "$code" = 200 ] && break
+            sleep 3
+          done
+          echo "GET ${SMOKE_PATH} -> $code"
+          [ "$code" = 200 ]
+
+      - name: Roll back on failure
+        if: failure() && steps.activate.outcome == 'success'
+        run: ssh vps "bash -s -- ${SITE}" < scripts/remote/rollback.sh || true

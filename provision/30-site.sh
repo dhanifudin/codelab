@@ -18,13 +18,24 @@ install_if_changed "$SITE_DIR/site.conf" "/etc/codelab/$SITE.conf" 644
 install_if_changed "$SITE_DIR/shared-paths.txt" "/etc/codelab/$SITE.shared-paths" 644
 
 # --- php-fpm pool ---
+# The fpm master may already serve other sites: validate first, reload gracefully, never restart.
 CHANGED=0
 render_template "$SITE_DIR/php-fpm-pool.conf" "$tmp/pool.conf"
-install_if_changed "$tmp/pool.conf" "/etc/php/$PHP_VERSION/fpm/pool.d/$POOL_NAME.conf" 644
-if [ "$CHANGED" = 1 ] || ! systemctl is-active --quiet "php$PHP_VERSION-fpm"; then
-    "php-fpm$PHP_VERSION" -t 2>&1 | sed 's/^/[php-fpm] /'
-    systemctl restart "php$PHP_VERSION-fpm"
-    log "changed:   php$PHP_VERSION-fpm restarted"
+pool_file="/etc/php/$PHP_VERSION/fpm/pool.d/$POOL_NAME.conf"
+install_if_changed "$tmp/pool.conf" "$pool_file" 644
+if [ "$CHANGED" = 1 ]; then
+    if ! "php-fpm$PHP_VERSION" -t 2>"$tmp/fpm-test"; then
+        cat "$tmp/fpm-test" >&2
+        rm -f "$pool_file"
+        die "php-fpm config invalid; pool removed, running fpm untouched"
+    fi
+fi
+if ! systemctl is-active --quiet "php$PHP_VERSION-fpm"; then
+    systemctl start "php$PHP_VERSION-fpm"
+    log "changed:   php$PHP_VERSION-fpm started"
+elif [ "$CHANGED" = 1 ]; then
+    systemctl reload "php$PHP_VERSION-fpm"
+    log "changed:   php$PHP_VERSION-fpm reloaded"
 fi
 
 # --- fpm log rotation ---
@@ -71,15 +82,15 @@ EOF
 visudo -cf "$tmp/sudoers" >/dev/null || die "generated sudoers invalid"
 install_if_changed "$tmp/sudoers" "/etc/sudoers.d/codelab-$SITE" 440
 
-# --- deploy key (public half, committed in sites/<site>/deploy.pub) ---
-if [ -f "$SITE_DIR/deploy.pub" ]; then
+# --- deploy key (public half, committed as deploy.pub at the repo root) ---
+if [ -f "$ROOT_DIR/deploy.pub" ]; then
     home=$(getent passwd "$DEPLOY_USER" | cut -d: -f6)
     install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$home/.ssh"
     touch "$home/.ssh/authorized_keys"
     ensure_line "$home/.ssh/authorized_keys" \
-        "no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty $(tr -d '\n' <"$SITE_DIR/deploy.pub")"
+        "no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty $(tr -d '\n' <"$ROOT_DIR/deploy.pub")"
     chown "$DEPLOY_USER:$DEPLOY_USER" "$home/.ssh/authorized_keys"
     chmod 600 "$home/.ssh/authorized_keys"
 else
-    warn "sites/$SITE/deploy.pub missing: run scripts/setup-github.sh first, then re-provision"
+    warn "deploy.pub missing: run scripts/setup-github.sh first, then re-provision"
 fi

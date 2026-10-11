@@ -1,0 +1,22 @@
+name: Deploy halokes
+
+on:
+  repository_dispatch:
+    types: [deploy-halokes]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA of dhanifudin/halokes
+        default: main
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      site: halokes
+      ref: ${{ inputs.ref }}
+    secrets: inherit

@@ -1,7 +1,8 @@
 # Sourced by provision.sh. PHP-FPM $PHP_VERSION from the ondrej PPA (already configured on this host).
-# Only installs php${PHP_VERSION}-* packages; other PHP versions and the `php` CLI alternative are untouched.
+# Only installs missing php${PHP_VERSION}-* packages; other PHP versions and the `php` CLI alternative are untouched.
+# Note: installing an extension for an fpm that already runs makes dpkg reload it (graceful).
 pkgs=()
-for ext in fpm cli common mysql gd zip mbstring xml curl intl bcmath; do
+for ext in $PHP_EXTENSIONS; do
     pkgs+=("php${PHP_VERSION}-${ext}")
 done
 
@@ -20,13 +21,14 @@ else
     CHANGED=1
 fi
 
-# The stock pool would sit idle on its own socket; disable it.
+# A freshly installed fpm ships an idle stock pool; disable it. Never do this on a
+# PHP version that already serves other sites (DISABLE_STOCK_POOL=0).
 stock=/etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
-if [ -f "$stock" ]; then
+if [ "$DISABLE_STOCK_POOL" = 1 ] && [ -f "$stock" ]; then
     mv "$stock" "$stock.disabled"
     log "changed:   disabled stock pool $stock"
 else
-    log "unchanged: stock pool already disabled"
+    log "unchanged: stock pool left as is (DISABLE_STOCK_POOL=$DISABLE_STOCK_POOL)"
 fi
 
 systemctl enable php${PHP_VERSION}-fpm >/dev/null 2>&1 || true

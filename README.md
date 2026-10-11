@@ -4,40 +4,39 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 
 | Site | App repo | Status |
 |---|---|---|
-| `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | HTTP only, DNS pending |
-| `halokes.com` | not available yet | postponed |
+| `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | active; DNS moving to Cloudflare, see `docs/halokes.md` |
+| `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | postponed; config ready but not provisioned |
 
 ## Layout
 
 ```
-sites/<site>/        per-site config: site.conf, nginx.conf, php-fpm-pool.conf, env.template, ...
-provision/           idempotent root scripts run on the VPS (swap, PHP, vhost + pool, sudoers, DB)
-scripts/             local helpers: setup-github.sh, provision-remote.sh, render-env.sh
-scripts/remote/      run on the VPS by CI: activate.sh, rollback.sh, bootstrap-spi.sh
-.github/workflows/   deploy-spi.yml, spi-bootstrap-db.yml
+sites/<site>/        per-site config: site.conf, nginx.conf, php-fpm-pool.conf, env.template, dns.records, ...
+deploy.pub           public half of the repo-wide deploy key
+provision/           idempotent root scripts run on the VPS (swap, PHP, TLS, Cloudflare IPs, vhost + pool, sudoers, DB, monit)
+scripts/             local helpers: setup-github.sh, provision-remote.sh, render-env.sh, cf-dns.sh
+scripts/remote/      run on the VPS by CI: activate.sh, rollback.sh, bootstrap.sh, bootstrap-spi.sh
+.github/workflows/   _deploy.yml (reusable), deploy-<site>.yml, bootstrap.yml, spi-bootstrap-db.yml
 docs/                cutover runbook, findings about the spi app, v2 decisions
 ```
 
 Adding a site means adding `sites/<site>/` with the same files. `provision/*.sh` and `activate.sh` are site-agnostic and read `site.conf`.
 
-## First-time setup (spi)
+## First-time setup of a site
 
-1. `scripts/setup-github.sh codelab` creates the private repo, a deploy SSH key (`sites/spi/deploy.pub`), and all GitHub secrets. Generated passwords are kept in `~/.config/codelab/spi.env`, outside git.
-2. Commit and push `sites/spi/deploy.pub`.
-3. `scripts/provision-remote.sh codelab spi` configures the VPS. It is safe to run again; unchanged items log `unchanged:` and nothing reloads.
-4. Run the **Deploy spi** workflow (Actions, Run workflow), then **Bootstrap spi data** once.
-5. Create the `CODELAB_DISPATCH_TOKEN` PAT and copy `sites/spi/app-dispatch.yml` into the app repo so every push to its `main` deploys. The wizard prints the exact steps.
+1. DNS: for Cloudflare-fronted sites follow `docs/cloudflare-migration.md` (`scripts/cf-dns.sh <site>`).
+2. `scripts/setup-github.sh <site> codelab` creates the private repo, the deploy SSH key (`deploy.pub`) and the GitHub secrets. Generated passwords are kept in `~/.config/codelab/<site>.env`, outside git. Commit and push `deploy.pub`.
+3. `scripts/provision-remote.sh codelab <site>` configures the VPS. It is safe to run again; unchanged items log `unchanged:` and nothing reloads.
+4. Run the **Deploy <site>** workflow (Actions, Run workflow), then **Bootstrap site data** once.
+5. Add the dispatch token and workflow to the app repo so every push to its `main` deploys (`sites/<site>/app-dispatch.yml`; the wizard prints the token steps).
+
+Per-site runbooks: `docs/halokes.md`; spi is described in `docs/spi-app-issues.md` and `docs/spi-cutover-dns-tls.md`.
 
 ## Deploy model
 
-Push to the app's `main` sends `repository_dispatch` (`deploy-spi`) here. The workflow builds on the GitHub runner (composer, no npm: the app commits its compiled assets), rsyncs to `releases/<sha>`, links shared paths (`storage/` and the upload directories under `public/`) and `.env`, runs `migrate --force`, caches config/routes/views, then atomically repoints `current` and reloads `php8.3-fpm`. The two newest releases are kept. A failed smoke test (`GET /login` must return 200) rolls back automatically.
+Push to the app's `main` sends `repository_dispatch` (`deploy-<site>`) here. The workflow builds on the GitHub runner (composer, plus npm/Vite when the site sets `NODE_BUILD=1`), rsyncs to `releases/<sha>`, links shared paths (`storage/` and the upload directories under `public/`) and `.env`, runs `migrate --force`, caches config/routes/views, then atomically repoints `current` and reloads that site's php-fpm. The two newest releases are kept. A failed smoke test (`SMOKE_PATH` from `site.conf` must return 200, checked directly against the origin) rolls back automatically.
 
-Manual rollback: `ssh codelab sudo -u deploy bash -s -- spi < scripts/remote/rollback.sh`. Migrations are not reverted.
+Manual rollback: `ssh codelab 'sudo -u deploy bash -s -- <site>' < scripts/remote/rollback.sh`. Migrations are not reverted.
 
 ## Secrets
 
 All secrets live in GitHub Secrets of this repo (plus `~/.config/codelab/` locally). Never commit `.env` files. See `scripts/setup-github.sh` for the full list.
-
-## Testing before DNS
-
-Add `194.127.193.198 spi.polinema.ac.id` to your `/etc/hosts`, then open `http://spi.polinema.ac.id`. See `docs/cutover-dns-tls.md` for the DNS and HTTPS cutover.

@@ -1,0 +1,60 @@
+name: Bootstrap site data
+
+# Runs the site's production seeder (reference data + first Super Admin from secrets).
+# Run once after the first successful deploy; the seeder must be idempotent.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: Site to bootstrap
+        type: choice
+        options: [halokes]
+        required: true
+
+concurrency:
+  group: deploy-${{ inputs.site }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SITE: ${{ inputs.site }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Seed
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          # stdin to the remote script: this site's <SITE>_ADMIN_* secrets as NAME=VALUE lines.
+          prefix="${SITE^^}_ADMIN_"
+          scp -q scripts/remote/bootstrap.sh vps:/tmp/bootstrap-site.sh
+          jq -r --arg p "$prefix" \
+            'to_entries[] | select(.key | startswith($p)) | select(.value | contains("\n") | not) | "\(.key)=\(.value)"' \
+            <<<"$SECRETS_JSON" \
+            | ssh vps "bash /tmp/bootstrap-site.sh ${SITE}; rc=\$?; rm -f /tmp/bootstrap-site.sh; exit \$rc"
