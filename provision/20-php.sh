@@ -16,7 +16,8 @@ if [ ${#missing[@]} -eq 0 ]; then
 else
     grep -rqs ondrej /etc/apt/sources.list.d || die "ondrej PPA not configured"
     log "changed:   installing ${missing[*]}"
-    apt-get update -qq
+    # Unrelated repos on this host may be broken (e.g. an unsigned PPA); fall back to the existing index.
+    apt-get update -qq || warn "apt-get update failed; using the existing package index"
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${missing[@]}"
     CHANGED=1
 fi
