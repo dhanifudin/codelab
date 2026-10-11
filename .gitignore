@@ -1,0 +1,8 @@
+.env
+.env.*
+*.pem
+id_*
+deploy_*
+!*.pub
+*.log
+.DS_Store

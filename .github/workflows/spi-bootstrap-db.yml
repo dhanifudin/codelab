@@ -1,0 +1,52 @@
+name: Bootstrap spi data
+
+# Seeds reference data (levels, menus, unit kerja, questionnaire) and creates the
+# Super Admin from secrets. Run once after the first successful deploy.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-spi
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Seed and create admin
+        env:
+          SPI_ADMIN_NAME: ${{ secrets.SPI_ADMIN_NAME }}
+          SPI_ADMIN_EMAIL: ${{ secrets.SPI_ADMIN_EMAIL }}
+          SPI_ADMIN_USERNAME: ${{ secrets.SPI_ADMIN_USERNAME }}
+          SPI_ADMIN_PASSWORD: ${{ secrets.SPI_ADMIN_PASSWORD }}
+        run: |
+          # The script reads admin details from stdin, so ssh must feed it the script
+          # through a file instead: upload, run with stdin = secrets, delete.
+          scp -q scripts/remote/bootstrap-spi.sh vps:/tmp/bootstrap-spi.sh
+          printf '%s\n%s\n%s\n%s\n' \
+            "$SPI_ADMIN_NAME" "$SPI_ADMIN_EMAIL" "$SPI_ADMIN_USERNAME" "$SPI_ADMIN_PASSWORD" \
+            | ssh vps 'bash /tmp/bootstrap-spi.sh spi; rc=$?; rm -f /tmp/bootstrap-spi.sh; exit $rc'

@@ -1,0 +1,119 @@
+name: Deploy spi
+
+on:
+  repository_dispatch:
+    types: [deploy-spi]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA of dhanifudin/spi.polinema.ac.id
+        default: main
+        required: false
+
+concurrency:
+  group: deploy-spi
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SITE: spi
+    steps:
+      - name: Checkout codelab (ops)
+        uses: actions/checkout@v4
+
+      - name: Load site config
+        run: |
+          set -a; . sites/spi/site.conf; set +a
+          {
+            echo "DOMAIN=$DOMAIN"
+            echo "APP_REPO=$APP_REPO"
+            echo "PHP_VERSION=$PHP_VERSION"
+            echo "BASE=$BASE"
+          } >> "$GITHUB_ENV"
+
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.APP_REPO }}
+          ref: ${{ github.event.client_payload.sha || inputs.ref || 'main' }}
+          path: app
+
+      - name: Resolve release id
+        working-directory: app
+        run: echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: gd, zip, mbstring, xml, pdo_mysql, intl, bcmath
+          tools: composer:v2
+
+      - name: Composer install
+        working-directory: app
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+
+      - name: Render .env
+        env:
+          SPI_APP_KEY: ${{ secrets.SPI_APP_KEY }}
+          SPI_DB_PASSWORD: ${{ secrets.SPI_DB_PASSWORD }}
+          SPI_APP_URL: ${{ vars.SPI_APP_URL }}
+          SPI_MAIL_HOST: ${{ secrets.SPI_MAIL_HOST }}
+          SPI_MAIL_PORT: ${{ secrets.SPI_MAIL_PORT }}
+          SPI_MAIL_USERNAME: ${{ secrets.SPI_MAIL_USERNAME }}
+          SPI_MAIL_PASSWORD: ${{ secrets.SPI_MAIL_PASSWORD }}
+          SPI_MAIL_FROM: ${{ secrets.SPI_MAIL_FROM }}
+          SPI_NOCAPTCHA_SECRET: ${{ secrets.SPI_NOCAPTCHA_SECRET }}
+          SPI_NOCAPTCHA_SITEKEY: ${{ secrets.SPI_NOCAPTCHA_SITEKEY }}
+        run: |
+          umask 077
+          scripts/render-env.sh spi > "$RUNNER_TEMP/spi.env"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Upload release
+        run: |
+          rsync -az --delete --exclude-from=sites/spi/rsync-exclude.txt \
+            app/ "vps:${BASE}/releases/${SHA}/"
+          rsync -az "$RUNNER_TEMP/spi.env" "vps:${BASE}/shared/.env"
+
+      - name: Activate
+        id: activate
+        run: ssh vps "bash -s -- spi ${SHA}" < scripts/remote/activate.sh
+
+      - name: Smoke test
+        run: |
+          code=000
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              --resolve "${DOMAIN}:80:${{ secrets.SSH_HOST }}" "http://${DOMAIN}/login" || true)
+            [ "$code" = 200 ] && break
+            sleep 3
+          done
+          echo "GET /login -> $code"
+          [ "$code" = 200 ]
+
+      - name: Roll back on failure
+        if: failure() && steps.activate.outcome == 'success'
+        run: ssh vps "bash -s -- spi" < scripts/remote/rollback.sh || true
