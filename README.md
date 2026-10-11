@@ -29,7 +29,7 @@ Adding a site means adding `sites/<site>/` with the same files. `provision/*.sh`
 4. Run the **Deploy <site>** workflow (Actions, Run workflow), then **Bootstrap site data** once.
 5. Add the dispatch token and workflow to the app repo so every push to its `main` deploys (`sites/<site>/app-dispatch.yml`; the wizard prints the token steps).
 
-Per-site runbooks: `docs/halokes.md`; spi is described in `docs/spi-app-issues.md` and `docs/spi-cutover-dns-tls.md`.
+Where each token comes from: `docs/tokens.md`. Per-site runbooks: `docs/halokes.md`; spi is described in `docs/spi-app-issues.md` and `docs/spi-cutover-dns-tls.md`.
 
 ## Deploy model
 

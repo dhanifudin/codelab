@@ -9,7 +9,9 @@ DNS records and zone settings live in this repo (`sites/halokes/dns.records`, `s
 1. **Add the zone.** In Cloudflare, Add a site, `halokes.com`, Free plan. Note the two nameservers it assigns (for example `xxx.ns.cloudflare.com`).
 2. **Create two API tokens** (My Profile, API Tokens, Create Token, Custom token). Restrict both to the zone `halokes.com`.
    - **dns-admin** (used locally by `cf-dns.sh`): Zone: Zone Read, Zone: DNS Edit, Zone: Zone Settings Edit.
-   - **certbot** (installed on the VPS for DNS-01): Zone: DNS Edit only.
+   - **certbot** (installed on the VPS for DNS-01): Zone: Zone Read and Zone: DNS Edit (certbot looks up the zone id, so Read is required).
+
+   Click-by-click instructions for both tokens: `docs/tokens.md`.
 3. **Store token A locally:** `install -m 600 /dev/null ~/.config/codelab/cloudflare.env && echo 'CF_API_TOKEN=...' >> ~/.config/codelab/cloudflare.env`.
 4. **Apply records and settings:** `scripts/cf-dns.sh halokes --dry-run`, then without `--dry-run`. A second run must print only `unchanged:` lines. Records not listed in `dns.records` are reported as `unmanaged:` and never deleted.
 5. **Switch nameservers at Rumahweb.** In the Rumahweb client area, domain halokes.com, Nameservers, replace the four `nsid*` entries with the two Cloudflare nameservers. Check that DNSSEC is off at Rumahweb first (it has no effect on an empty zone, but a stale DS record breaks resolution after the switch).

@@ -3,7 +3,7 @@
 # secrets for one site. Existing generated values are reused, never regenerated.
 #
 # Usage: scripts/setup-github.sh <site> [ssh-host-alias]       (e.g. halokes codelab)
-# Needs: gh (logged in), ssh, ssh-keygen, openssl.
+# Needs: gh (logged in), ssh, ssh-keygen, openssl. Where each token comes from: docs/tokens.md
 # Local secret store: ~/.config/codelab/ (mode 700), outside the repo.
 #
 # Without a tty (e.g. `!` in Claude Code) pass answers as env vars:
@@ -30,6 +30,25 @@ ask()  { local p=$1 d=${2:-} a; read -r -p "$p${d:+ [$d]}: " a; printf '%s' "${a
 asks() { local a; read -rs -p "$1: " a; echo >&2; printf '%s' "$a"; }
 rand() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
 tty()  { [ -t 0 ]; }
+
+guide_cf_certbot() { cat >&2 <<'G'
+
+How to get CF_CERTBOT_TOKEN (Cloudflare, a SECOND token, not the dns-admin one):
+  1. dash.cloudflare.com -> profile icon -> My Profile -> API Tokens -> Create Token -> Create Custom Token
+  2. Permissions: Zone / Zone / Read, and Zone / DNS / Edit
+  3. Zone Resources: Include / Specific zone / halokes.com
+  4. Create Token and copy it (shown once). Details: docs/tokens.md
+G
+}
+guide_app_read() { cat >&2 <<'G'
+
+How to get APP_READ_TOKEN (GitHub fine-grained token that lets Actions download the private app repo):
+  1. https://github.com/settings/personal-access-tokens/new
+  2. Resource owner: dhanifudin; Repository access: Only select repositories -> the app repo
+  3. Repository permissions: Contents = Read-only
+  4. Generate token and copy it (github_pat_...). Details: docs/tokens.md
+G
+}
 
 command -v gh >/dev/null || { echo "gh not installed" >&2; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "run: gh auth login" >&2; exit 1; }
@@ -103,8 +122,17 @@ if [ "${TLS:-none}" = letsencrypt-cloudflare ]; then
     say "5b/6 Cloudflare tokens (local only; never sent to GitHub)"
     if [ -z "$(get CF_CERTBOT_TOKEN)" ]; then
         t=${CF_CERTBOT_TOKEN:-}
-        [ -n "$t" ] || { tty && t=$(asks "Certbot token (DNS:Edit on ${CF_ZONE:-the zone} only)") || true; }
-        [ -n "$t" ] || { echo "set CF_CERTBOT_TOKEN (see docs/cloudflare-migration.md)" >&2; exit 1; }
+        if [ -z "$t" ]; then
+            guide_cf_certbot
+            tty || { echo "no tty: set CF_CERTBOT_TOKEN in the environment" >&2; exit 1; }
+            t=$(asks "Paste the certbot token (input hidden)")
+        fi
+        [ -n "$t" ] || { echo "empty token" >&2; exit 1; }
+        # Least privilege: the VPS must not hold the token that can edit zone settings.
+        if [ "${ALLOW_SAME_CF_TOKEN:-0}" != 1 ] && grep -qxF "CF_API_TOKEN=$t" "$STORE/cloudflare.env" 2>/dev/null; then
+            echo "CF_CERTBOT_TOKEN equals the dns-admin token. Create a separate one (docs/tokens.md) or set ALLOW_SAME_CF_TOKEN=1." >&2
+            exit 1
+        fi
         put CF_CERTBOT_TOKEN "$t"
     fi
     if [ -n "${CF_API_TOKEN:-}" ] && ! grep -q '^CF_API_TOKEN=' "$STORE/cloudflare.env" 2>/dev/null; then
@@ -128,17 +156,24 @@ if [ "$(gh repo view "$APP_REPO" --json isPrivate -q .isPrivate 2>/dev/null || e
     if [ -n "${APP_READ_TOKEN:-}" ]; then
         setsec APP_READ_TOKEN "$APP_READ_TOKEN"
     else
-        echo "NOTE: $APP_REPO is private. Deploys need secret APP_READ_TOKEN (fine-grained PAT, Contents: read on $APP_REPO):"
-        echo "      gh secret set APP_READ_TOKEN --repo $REPO"
+        echo "NOTE: $APP_REPO is private, so deploys need the secret APP_READ_TOKEN."
+        guide_app_read
+        if tty; then
+            t=$(asks "Paste APP_READ_TOKEN now (input hidden, Enter to skip)")
+            [ -z "$t" ] || setsec APP_READ_TOKEN "$t"
+        else
+            echo "Set it later: gh secret set APP_READ_TOKEN --repo $REPO" >&2
+        fi
     fi
 fi
 
 cat <<EOF
 
-Remaining manual step (cannot be automated):
-  Create a fine-grained PAT at https://github.com/settings/personal-access-tokens/new
-    Resource owner: dhanifudin, Repository access: only $REPO,
-    Permissions: Contents = Read and write (needed for repository_dispatch).
-  Then store it in the app repo:
-    gh secret set CODELAB_DISPATCH_TOKEN --repo $APP_REPO
+Remaining manual step (needed once the notify workflow PR is merged in the app repo):
+  CODELAB_DISPATCH_TOKEN, how to get it:
+    1. https://github.com/settings/personal-access-tokens/new
+    2. Resource owner: dhanifudin; Repository access: only $REPO
+    3. Repository permissions: Contents = Read and write (GitHub needs write to send a dispatch event)
+    4. Generate, then: gh secret set CODELAB_DISPATCH_TOKEN --repo $APP_REPO
+  All token instructions: docs/tokens.md
 EOF

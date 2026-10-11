@@ -14,7 +14,7 @@ App: `dhanifudin/halokes` (private), Laravel 12, Blade plus a React landing page
 ## First run, in order
 
 1. Cloudflare zone, tokens, records, nameservers: `docs/cloudflare-migration.md`.
-2. `scripts/setup-github.sh halokes codelab` (see the header for non-interactive variables). Commit and push `deploy.pub`.
+2. `scripts/setup-github.sh halokes codelab` (tokens: `docs/tokens.md`; non-interactive variables are in the script header). Commit and push `deploy.pub`.
 3. `scripts/provision-remote.sh codelab halokes`. Run it twice: the second run must log only `unchanged:` and `skipped:` lines.
 4. App PRs merged in `dhanifudin/halokes`: schema baseline, `ProductionSeeder`, cleanup, `notify-codelab.yml`.
 5. Actions, **Deploy halokes**, Run workflow. Then Actions, **Bootstrap site data**, site `halokes`.
