@@ -27,10 +27,11 @@ fi
 # cf METHOD PATH [JSON-BODY] -> prints response; fails on API errors.
 cf() {
     local method=$1 path=$2 body=${3:-} out
-    local args=(-sS --max-time 30 -X "$method" -K <(printf 'header = "Authorization: Bearer %s"\n' "$CF_API_TOKEN")
-        -H 'Content-Type: application/json')
+    local args=(-sS --max-time 30 -X "$method" -K - -H 'Content-Type: application/json')
     [ -z "$body" ] || args+=(--data "$body")
-    out=$(curl "${args[@]}" "$API$path") || { echo "request failed: $method $path" >&2; return 1; }
+    # The auth header goes in as a curl config on stdin, so the token never appears in argv.
+    out=$(curl "${args[@]}" "$API$path" <<<"header = \"Authorization: Bearer $CF_API_TOKEN\"") \
+        || { echo "request failed: $method $path" >&2; return 1; }
     jq -e '.success == true' >/dev/null <<<"$out" || {
         echo "Cloudflare API error on $method $path: $(jq -c '.errors' <<<"$out")" >&2; return 1; }
     printf '%s' "$out"
