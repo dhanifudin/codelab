@@ -56,16 +56,25 @@ KNOWN=$(ssh-keyscan -t ed25519 "$HOSTNAME_RESOLVED" 2>/dev/null)
 echo "Fingerprint seen on the network:"
 printf '%s\n' "$KNOWN" | ssh-keygen -lf -
 echo "Compare with the server:  ssh $SSH_ALIAS 'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'"
-[ "$(ask 'Fingerprints match? (yes/no)' no)" = yes ] || { echo "aborted"; exit 1; }
+# Non-interactive (e.g. run via `!` in Claude Code, no tty): pass the verified fingerprint.
+#   CONFIRM_FINGERPRINT=SHA256:... scripts/setup-github.sh codelab
+SEEN_FPR=$(printf '%s\n' "$KNOWN" | ssh-keygen -lf - | awk '{print $2}')
+if [ -n "${CONFIRM_FINGERPRINT:-}" ]; then
+    [ "$CONFIRM_FINGERPRINT" = "$SEEN_FPR" ] || { echo "fingerprint mismatch: got $SEEN_FPR" >&2; exit 1; }
+else
+    [ -t 0 ] || { echo "no tty: set CONFIRM_FINGERPRINT=$SEEN_FPR after verifying it" >&2; exit 1; }
+    [ "$(ask 'Fingerprints match? (yes/no)' no)" = yes ] || { echo "aborted"; exit 1; }
+fi
 
 say "4/6 Generated secrets (kept in $ENV_FILE)"
 [ -n "$(get SPI_APP_KEY)" ]     || put SPI_APP_KEY "base64:$(openssl rand -base64 32)"
 [ -n "$(get SPI_DB_PASSWORD)" ] || put SPI_DB_PASSWORD "$(rand 24)"
 
 say "5/6 Super Admin for the app"
-[ -n "$(get SPI_ADMIN_NAME)" ]     || put SPI_ADMIN_NAME "$(ask 'Admin name' 'Super Admin')"
-[ -n "$(get SPI_ADMIN_EMAIL)" ]    || put SPI_ADMIN_EMAIL "$(ask 'Admin email')"
-[ -n "$(get SPI_ADMIN_USERNAME)" ] || put SPI_ADMIN_USERNAME "$(ask 'Admin username (also NIP)' 'admin')"
+# Preset via env (SPI_ADMIN_NAME/EMAIL/USERNAME) to skip prompts.
+[ -n "$(get SPI_ADMIN_NAME)" ]     || put SPI_ADMIN_NAME "${SPI_ADMIN_NAME:-$(ask 'Admin name' 'Super Admin')}"
+[ -n "$(get SPI_ADMIN_EMAIL)" ]    || put SPI_ADMIN_EMAIL "${SPI_ADMIN_EMAIL:-$(ask 'Admin email')}"
+[ -n "$(get SPI_ADMIN_USERNAME)" ] || put SPI_ADMIN_USERNAME "${SPI_ADMIN_USERNAME:-$(ask 'Admin username (also NIP)' 'admin')}"
 if [ -z "$(get SPI_ADMIN_PASSWORD)" ]; then
     put SPI_ADMIN_PASSWORD "$(rand 20)"
     echo "generated admin password; read it from $ENV_FILE (SPI_ADMIN_PASSWORD) and change it after first login"
