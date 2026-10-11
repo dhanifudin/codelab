@@ -31,6 +31,20 @@ jobs:
           [[ "$SITE" =~ ^[a-z0-9-]+$ ]] || { echo "bad site name" >&2; exit 1; }
           echo "SITE=$SITE" >> "$GITHUB_ENV"
 
+      - name: Validate app ref
+        env:
+          DISPATCH_SHA: ${{ github.event.client_payload.sha }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          # A dispatched sha must be a full commit id; a manual ref may be a branch, tag or sha.
+          # This limits what a leaked dispatch token can make the runner check out.
+          if [ -n "$DISPATCH_SHA" ] && ! [[ "$DISPATCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "client_payload.sha is not a 40-hex commit id" >&2; exit 1
+          fi
+          if [ -n "$INPUT_REF" ] && ! [[ "$INPUT_REF" =~ ^[A-Za-z0-9._/-]{1,100}$ ]]; then
+            echo "ref contains unexpected characters" >&2; exit 1
+          fi
+
       - name: Checkout codelab (ops)
         uses: actions/checkout@v4
 

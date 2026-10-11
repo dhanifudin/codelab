@@ -3,8 +3,8 @@
 # Seeds REFERENCE data only and creates one Super Admin.
 # Admin details arrive on stdin (never argv), one per line, in this order:
 #   name, email, username (also used as NIP), password
-# The app's UserData/PetaSeeder/PostSeeder/BeritaAcaraSeeder are never run: they create
-# real staff accounts with password 123456 and a Super Admin test/123.
+# The app's UserData/PetaSeeder/PostSeeder/BeritaAcaraSeeder are never run: they create demo
+# accounts with default credentials.
 set -euo pipefail
 
 SITE=${1:?site}

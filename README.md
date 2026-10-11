@@ -37,6 +37,10 @@ Push to the app's `main` sends `repository_dispatch` (`deploy-<site>`) here. The
 
 Manual rollback: `ssh codelab 'sudo -u deploy bash -s -- <site>' < scripts/remote/rollback.sh`. Migrations are not reverted.
 
+## What is and isn't in this repo
+
+Configuration only: nginx and PHP-FPM templates, provisioning and deploy scripts, workflows, runbooks. No credentials. Secrets live in this repo's GitHub Secrets and in `~/.config/codelab/` on the operator's machine; `deploy.pub` is the public half of the deploy key. To report a security problem, open a private security advisory on this repository instead of a public issue.
+
 ## Secrets
 
 All secrets live in GitHub Secrets of this repo (plus `~/.config/codelab/` locally). Never commit `.env` files. See `scripts/setup-github.sh` for the full list.
