@@ -19,6 +19,28 @@ App: `dhanifudin/halokes` (private), Laravel 12, Blade plus a React landing page
 4. App PRs merged in `dhanifudin/halokes`: schema baseline, `ProductionSeeder`, cleanup, `notify-codelab.yml`.
 5. Actions, **Deploy halokes**, Run workflow. Then Actions, **Bootstrap site data**, site `halokes`.
 
+## Adding a school subdomain
+
+Example: Aboe Bakar Soemijati at `abs.halokes.com`. The certificate is a wildcard (`*.halokes.com`), so no certificate change is needed.
+
+1. In `sites/halokes/site.conf` add the host to `SERVER_NAMES` and a `host:KODE` entry to `TENANTS` (KODE is the school's `kode_yayasan` in the app, e.g. `abs.halokes.com:ABS`).
+2. In `sites/halokes/dns.records` add `A <label> 194.127.193.198 true auto`.
+3. Provision first, DNS last (a DNS record that points at an origin which does not yet serve the host answers with another site's certificate and Cloudflare shows a 526):
+   `scripts/provision-remote.sh codelab halokes`, check `curl --resolve abs.halokes.com:443:194.127.193.198 https://abs.halokes.com/up`, then `scripts/cf-dns.sh halokes`.
+4. Onboard the school in the app (below).
+
+Until the app has host-based tenancy, nginx redirects `/` and `/login` on a school host to that yayasan's portal (`/y/KODE`, `/y/KODE/login`) on the same host. Other hosts are not routed to the app unless listed in `SERVER_NAMES`, even though the certificate is a wildcard.
+
+### Onboarding a school in the app
+
+The school's pages return 404 until its yayasan exists.
+
+1. Owner, `/owner/yayasans/create`: set `nama_yayasan`, **`kode_yayasan` = the KODE from `TENANTS`**, `status` = aktif.
+2. `/superadmin/users`: create the school's `super_admin` (`yayasan_id` = the new yayasan).
+3. Switch to that yayasan and create the school at `/superadmin/schools/create`. Check that its `yayasan_id` is the new yayasan, not 1 (the app silently falls back to 1).
+4. `/superadmin/schools/{id}/modules`: enable modules, then create admin, kepsek and guru users.
+5. Optional: insert a `domains` row (`school_id`, the host, `is_verified=1`). It only matters for the app's `/check-domain` endpoint.
+
 ## Operations
 
 - **Deploy:** push to the app's `main` (dispatch) or run **Deploy halokes** manually with a ref.

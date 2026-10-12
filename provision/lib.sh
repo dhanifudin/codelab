@@ -50,3 +50,21 @@ ensure_line() {
         CHANGED=1
     fi
 }
+
+# cert_covers <san-text> <name>: true when a certificate with these SANs (the output of
+# `openssl x509 -ext subjectAltName`) is valid for <name>. A wildcard name is only covered by the
+# identical wildcard; a plain name is covered by itself or by *.parent when it is exactly one label deep.
+cert_covers() {
+    local san=$1 name=$2 sans c suffix label
+    sans=$(grep -oE 'DNS:[^, ]+' <<<"$san" | cut -c5-)
+    while IFS= read -r c; do
+        [ -n "$c" ] || continue
+        [ "$c" = "$name" ] && return 0
+        if [[ "$c" == \*.* && "$name" != \** ]]; then
+            suffix=${c#\*}                      # .halokes.com
+            label=${name%"$suffix"}              # abs
+            [ "$label" != "$name" ] && [ -n "$label" ] && [[ "$label" != *.* ]] && return 0
+        fi
+    done <<<"$sans"
+    return 1
+}

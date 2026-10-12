@@ -55,6 +55,14 @@ EOF
 install_if_changed "$tmp/logrotate" "/etc/logrotate.d/php${PHP_VERSION}-fpm-${POOL_NAME}" 644
 
 # --- nginx vhost ---
+# TENANTS="host:KODE ..." maps a school host to its yayasan portal (see sites/halokes/nginx.conf).
+TENANT_HOSTS=; TENANT_MAP=
+for t in $TENANTS; do
+    [[ "$t" =~ ^[a-z0-9.-]+:[A-Za-z0-9_-]+$ ]] || die "bad TENANTS entry: $t (want host:KODE)"
+    TENANT_HOSTS+="${t%%:*} "
+    TENANT_MAP+="    ${t%%:*} ${t##*:};"$'\n'
+done
+TENANT_HOSTS=${TENANT_HOSTS% }
 CHANGED=0
 render_template "$SITE_DIR/nginx.conf" "$tmp/vhost.conf"
 install_if_changed "$tmp/vhost.conf" "/etc/nginx/sites-available/$DOMAIN.conf" 644

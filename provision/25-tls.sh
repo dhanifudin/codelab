@@ -28,24 +28,27 @@ covered=1
 live="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 if [ -f "$live" ]; then
     san=$(openssl x509 -in "$live" -noout -ext subjectAltName 2>/dev/null || true)
-    for n in $SERVER_NAMES; do
-        grep -qw "DNS:$n" <<<"$san" || covered=0
+    for n in $CERT_NAMES; do
+        cert_covers "$san" "$n" || covered=0
     done
 else
     covered=0
 fi
 
 if [ "$covered" = 1 ]; then
-    log "unchanged: certificate for $SERVER_NAMES present (renewal: certbot.timer)"
+    log "unchanged: certificate for $CERT_NAMES present (renewal: certbot.timer)"
 else
     [ -f "$cred_file" ] || die "no $cred_file: set CF_CERTBOT_TOKEN (see docs/cloudflare-migration.md)"
     args=()
-    for n in $SERVER_NAMES; do args+=(-d "$n"); done
+    # `set -f`: a wildcard name such as *.example.com must never be glob-expanded.
+    set -f
+    for n in $CERT_NAMES; do args+=(-d "$n"); done
+    set +f
     if [ -n "${CERTBOT_EMAIL:-}" ]; then acct=(-m "$CERTBOT_EMAIL"); else acct=(--register-unsafely-without-email); fi
     certbot certonly --dns-cloudflare --dns-cloudflare-credentials "$cred_file" \
         --dns-cloudflare-propagation-seconds 30 --cert-name "$DOMAIN" "${args[@]}" \
         --expand --keep-until-expiring -n --agree-tos "${acct[@]}" \
         --deploy-hook "systemctl reload nginx"
-    log "changed:   certificate issued for $SERVER_NAMES"
+    log "changed:   certificate issued for $CERT_NAMES"
     CHANGED=1
 fi

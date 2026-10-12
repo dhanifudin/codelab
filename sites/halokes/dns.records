@@ -2,3 +2,4 @@
 # Managed by scripts/cf-dns.sh. Records not listed here are left alone.
 A @   194.127.193.198 true auto
 A www 194.127.193.198 true auto
+A abs 194.127.193.198 true auto
