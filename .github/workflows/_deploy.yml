@@ -55,7 +55,8 @@ jobs:
           {
             echo "DOMAIN=$DOMAIN"
             echo "APP_REPO=$APP_REPO"
-            echo "PHP_VERSION=$PHP_VERSION"
+            echo "KIND=${KIND:-laravel}"
+            echo "PHP_VERSION=${PHP_VERSION:-}"
             echo "BASE=$BASE"
             echo "NODE_BUILD=${NODE_BUILD:-0}"
             echo "NODE_VERSION=${NODE_VERSION:-22}"
@@ -78,22 +79,24 @@ jobs:
         run: echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - uses: shivammathur/setup-php@v2
+        if: env.KIND != 'go'
         with:
           php-version: ${{ env.PHP_VERSION }}
           extensions: gd, zip, mbstring, xml, pdo_mysql, intl, bcmath
           tools: composer:v2
 
       - name: Composer install
+        if: env.KIND != 'go'
         working-directory: app
         run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
       - uses: actions/setup-node@v4
-        if: env.NODE_BUILD == '1'
+        if: env.KIND != 'go' && env.NODE_BUILD == '1'
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Build frontend assets
-        if: env.NODE_BUILD == '1'
+        if: env.KIND != 'go' && env.NODE_BUILD == '1'
         working-directory: app
         run: |
           if [ "$PKG_MANAGER" = pnpm ]; then
@@ -104,6 +107,19 @@ jobs:
             npm ci --no-audit --no-fund
             npm run build
           fi
+
+      - uses: actions/setup-go@v5
+        if: env.KIND == 'go'
+        with:
+          go-version-file: app/go.mod
+
+      - name: Build Go binary
+        if: env.KIND == 'go'
+        working-directory: app
+        run: |
+          # The app repo's CI already ran the tests for this sha; this only builds.
+          install -d -m 755 "$RUNNER_TEMP/release"
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o "$RUNNER_TEMP/release/licensed" ./cmd/licensed
 
       - name: Render .env
         env:
@@ -142,8 +158,12 @@ jobs:
 
       - name: Upload release
         run: |
-          rsync -az --delete --exclude-from="sites/${SITE}/rsync-exclude.txt" \
-            app/ "vps:${BASE}/releases/${SHA}/"
+          if [ "$KIND" = go ]; then
+            rsync -az --delete "$RUNNER_TEMP/release/" "vps:${BASE}/releases/${SHA}/"
+          else
+            rsync -az --delete --exclude-from="sites/${SITE}/rsync-exclude.txt" \
+              app/ "vps:${BASE}/releases/${SHA}/"
+          fi
           rsync -az "$RUNNER_TEMP/site.env" "vps:${BASE}/shared/.env"
 
       - name: Activate

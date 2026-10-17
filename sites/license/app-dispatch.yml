@@ -1,0 +1,18 @@
+# Already in dhanifudin/license.dhanifudin.com as .github/workflows/ci.yml (the dispatch job runs after the tests).
+# Needs secret CODELAB_DISPATCH_TOKEN: fine-grained PAT, repo dhanifudin/codelab only, Contents: read and write.
+name: Notify codelab
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CODELAB_DISPATCH_TOKEN }}
+          repository: dhanifudin/codelab
+          event-type: deploy-license
+          client-payload: '{"sha": "${{ github.sha }}"}'

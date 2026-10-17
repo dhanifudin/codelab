@@ -1,6 +1,11 @@
 # Sourced by provision.sh. PHP-FPM $PHP_VERSION from the ondrej PPA (already configured on this host).
 # Only installs missing php${PHP_VERSION}-* packages; other PHP versions and the `php` CLI alternative are untouched.
 # Note: installing an extension for an fpm that already runs makes dpkg reload it (graceful).
+if [ "$KIND" = go ]; then
+    log "skipped:   PHP (KIND=go)"
+    return 0
+fi
+
 pkgs=()
 for ext in $PHP_EXTENSIONS; do
     pkgs+=("php${PHP_VERSION}-${ext}")

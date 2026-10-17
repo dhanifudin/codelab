@@ -1,0 +1,22 @@
+name: Deploy license
+
+on:
+  repository_dispatch:
+    types: [deploy-license]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA of dhanifudin/license.dhanifudin.com
+        default: main
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      site: license
+      ref: ${{ inputs.ref }}
+    secrets: inherit

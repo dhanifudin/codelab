@@ -9,6 +9,8 @@
 # Without a tty (e.g. `!` in Claude Code) pass answers as env vars:
 #   CONFIRM_FINGERPRINT=SHA256:...   host key fingerprint you verified
 #   <SITE>_ADMIN_NAME / _EMAIL       first Super Admin (spi also _USERNAME)
+#   Go sites (KIND=go, e.g. license): <SITE>_GOOGLE_CLIENT_ID / _GOOGLE_CLIENT_SECRET, <SITE>_KEY_ID,
+#                                    <SITE>_ADMIN_EMAILS (comma-separated), optional <SITE>_PAYMENT_TEXT
 #   CF_CERTBOT_TOKEN                 Cloudflare token for certbot (DNS:Edit on the zone), Cloudflare sites
 #   CF_API_TOKEN                     Cloudflare token for scripts/cf-dns.sh, optional here
 #   APP_READ_TOKEN                   fine-grained PAT, Contents:read on a private app repo
@@ -61,6 +63,17 @@ put() { # put VAR VALUE: replace or append in the local store
     printf '%s=%q\n' "$1" "$2" >>"$ENV_FILE.tmp"
     mv "$ENV_FILE.tmp" "$ENV_FILE"; chmod 600 "$ENV_FILE"
 }
+# want_secret VAR PROMPT: like want, but the prompt does not echo.
+want_secret() {
+    local v=$1 cur
+    cur=$(get "$v"); [ -z "$cur" ] || return 0
+    cur=${!v:-}
+    if [ -z "$cur" ]; then
+        tty || { echo "set $v in the environment (no tty to ask)" >&2; exit 1; }
+        cur=$(asks "$2 (input hidden)")
+    fi
+    put "$v" "$cur"
+}
 # want VAR PROMPT [DEFAULT]: keep stored value, else env var of the same name, else prompt (tty only).
 want() {
     local v=$1 cur
@@ -106,16 +119,26 @@ else
 fi
 
 say "4/6 Generated secrets (kept in $ENV_FILE)"
-[ -n "$(get "${P}APP_KEY")" ]     || put "${P}APP_KEY" "base64:$(openssl rand -base64 32)"
+[ "${KIND:-laravel}" = go ] || [ -n "$(get "${P}APP_KEY")" ] || put "${P}APP_KEY" "base64:$(openssl rand -base64 32)"
 [ -n "$(get "${P}DB_PASSWORD")" ] || put "${P}DB_PASSWORD" "$(rand 24)"
 
-say "5/6 First Super Admin"
-want "${P}ADMIN_NAME" "Admin name" "Super Admin"
-want "${P}ADMIN_EMAIL" "Admin email"
-[ "$SITE" != spi ] || want "${P}ADMIN_USERNAME" "Admin username (also NIP)" "admin"
-if [ -z "$(get "${P}ADMIN_PASSWORD")" ]; then
-    put "${P}ADMIN_PASSWORD" "$(rand 20)"
-    echo "generated admin password; read it from $ENV_FILE (${P}ADMIN_PASSWORD) and change it after first login"
+if [ "${KIND:-laravel}" = go ]; then
+    say "5/6 Application settings (Google OAuth client: redirect URI https://$DOMAIN/auth/callback)"
+    want "${P}GOOGLE_CLIENT_ID" "Google OAuth client id"
+    want_secret "${P}GOOGLE_CLIENT_SECRET" "Google OAuth client secret"
+    want "${P}KEY_ID" "Signing key id (any label, e.g. 2026-10)" "2026-10"
+    want "${P}ADMIN_EMAILS" "Admin emails, comma-separated"
+    pt_var="${P}PAYMENT_TEXT"   # optional; stored only when given in the environment
+    [ -n "$(get "$pt_var")" ] || [ -z "${!pt_var:-}" ] || put "$pt_var" "${!pt_var}"
+else
+    say "5/6 First Super Admin"
+    want "${P}ADMIN_NAME" "Admin name" "Super Admin"
+    want "${P}ADMIN_EMAIL" "Admin email"
+    [ "$SITE" != spi ] || want "${P}ADMIN_USERNAME" "Admin username (also NIP)" "admin"
+    if [ -z "$(get "${P}ADMIN_PASSWORD")" ]; then
+        put "${P}ADMIN_PASSWORD" "$(rand 20)"
+        echo "generated admin password; read it from $ENV_FILE (${P}ADMIN_PASSWORD) and change it after first login"
+    fi
 fi
 
 if [ "${TLS:-none}" = letsencrypt-cloudflare ]; then
@@ -147,10 +170,22 @@ setsec SSH_HOST         "$HOSTNAME_RESOLVED"
 setsec SSH_USER         "$DEPLOY_USER"
 setsec SSH_PRIVATE_KEY  "$(cat "$KEY")"
 setsec SSH_KNOWN_HOSTS  "$KNOWN"
-for v in APP_KEY DB_PASSWORD ADMIN_NAME ADMIN_EMAIL ADMIN_PASSWORD; do
-    setsec "${P}$v" "$(get "${P}$v")"
-done
-[ "$SITE" != spi ] || setsec "${P}ADMIN_USERNAME" "$(get "${P}ADMIN_USERNAME")"
+if [ "${KIND:-laravel}" = go ]; then
+    for v in DB_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+        setsec "${P}$v" "$(get "${P}$v")"
+    done
+    # Not secret: repo variables, rendered into the .env like secrets (see _deploy.yml).
+    for v in KEY_ID ADMIN_EMAILS; do
+        printf '%s' "$(get "${P}$v")" | gh variable set "${P}$v" --repo "$REPO" >/dev/null; echo "set variable ${P}$v"
+    done
+    pt=$(get "${P}PAYMENT_TEXT")
+    [ -z "$pt" ] || { printf '%s' "$pt" | gh variable set "${P}PAYMENT_TEXT" --repo "$REPO" >/dev/null; echo "set variable ${P}PAYMENT_TEXT"; }
+else
+    for v in APP_KEY DB_PASSWORD ADMIN_NAME ADMIN_EMAIL ADMIN_PASSWORD; do
+        setsec "${P}$v" "$(get "${P}$v")"
+    done
+    [ "$SITE" != spi ] || setsec "${P}ADMIN_USERNAME" "$(get "${P}ADMIN_USERNAME")"
+fi
 
 if [ "$(gh repo view "$APP_REPO" --json isPrivate -q .isPrivate 2>/dev/null || echo true)" = true ]; then
     if [ -n "${APP_READ_TOKEN:-}" ]; then

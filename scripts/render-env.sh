@@ -21,8 +21,10 @@ PREFIX=${SITE^^}_
 for v in ${ENV_REQUIRED:-}; do
     [ -n "${!v:-}" ] || { echo "required variable $v is empty" >&2; exit 1; }
 done
-key_var=${PREFIX}APP_KEY
-case ${!key_var:-} in base64:*) ;; *) echo "$key_var must look like base64:..." >&2; exit 1 ;; esac
+if [ "${KIND:-laravel}" != go ]; then
+    key_var=${PREFIX}APP_KEY
+    case ${!key_var:-} in base64:*) ;; *) echo "$key_var must look like base64:..." >&2; exit 1 ;; esac
+fi
 
 # Explicit variable list so Laravel's own ${APP_NAME} references are left untouched.
 vars=$(grep -oE "\\$\\{${PREFIX}[A-Z_]*\\}" "$TEMPLATE" | sort -u | tr '\n' ' ')

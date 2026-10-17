@@ -5,6 +5,7 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 | Site | App repo | Status |
 |---|---|---|
 | `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | active; DNS moving to Cloudflare, see `docs/halokes.md` |
+| `license.dhanifudin.com` | `dhanifudin/license.dhanifudin.com` (Go, private) | `KIND=go` binary site; see `docs/license.md` |
 | `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | postponed; config ready but not provisioned |
 
 ## Layout
@@ -19,7 +20,7 @@ scripts/remote/      run on the VPS by CI: activate.sh, rollback.sh, bootstrap.s
 docs/                cutover runbook, findings about the spi app, v2 decisions
 ```
 
-Adding a site means adding `sites/<site>/` with the same files. `provision/*.sh` and `activate.sh` are site-agnostic and read `site.conf`.
+Adding a site means adding `sites/<site>/` with the same files. `KIND=go` sites (see `docs/license.md`) have a `systemd.service` instead of `php-fpm-pool.conf`, and no PHP, Composer or artisan steps. `provision/*.sh` and `activate.sh` are site-agnostic and read `site.conf`.
 
 ## First-time setup of a site
 
@@ -34,6 +35,8 @@ Where each token comes from: `docs/tokens.md`. Per-site runbooks: `docs/halokes.
 ## Deploy model
 
 Push to the app's `main` sends `repository_dispatch` (`deploy-<site>`) here. The workflow builds on the GitHub runner (composer, plus npm/Vite when the site sets `NODE_BUILD=1`), rsyncs to `releases/<sha>`, links shared paths (`storage/` and the upload directories under `public/`) and `.env`, runs `migrate --force`, caches config/routes/views, then atomically repoints `current` and reloads that site's php-fpm. The two newest releases are kept. A failed smoke test (`SMOKE_PATH` from `site.conf` must return 200, checked directly against the origin) rolls back automatically.
+
+For `KIND=go` sites the runner runs `go build` instead, the release is the binary, and the switch restarts the site's systemd unit instead of reloading fpm.
 
 Manual rollback: `ssh codelab 'sudo -u deploy bash -s -- <site>' < scripts/remote/rollback.sh`. Migrations are not reverted.
 

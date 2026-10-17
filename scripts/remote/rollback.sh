@@ -18,5 +18,9 @@ fi
 
 ln -sfn "releases/$target" "$BASE/current.new"
 mv -T "$BASE/current.new" "$BASE/current"
-sudo -n /usr/bin/systemctl reload "php$PHP_VERSION-fpm"
+if [ "${KIND:-laravel}" = go ]; then
+    sudo -n /usr/bin/systemctl restart "$SERVICE.service"
+else
+    sudo -n /usr/bin/systemctl reload "php$PHP_VERSION-fpm"
+fi
 echo "rolled back: $active -> $target"

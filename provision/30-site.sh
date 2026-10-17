@@ -1,4 +1,4 @@
-# Sourced by provision.sh. Directories, fpm pool, nginx vhost, sudoers, deploy key, logrotate.
+# Sourced by provision.sh. Directories, fpm pool (laravel) or systemd unit (go), nginx vhost, sudoers, deploy key, logrotate.
 id "$DEPLOY_USER" >/dev/null 2>&1 || die "user $DEPLOY_USER does not exist"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -17,29 +17,30 @@ done
 install_if_changed "$SITE_DIR/site.conf" "/etc/codelab/$SITE.conf" 644
 install_if_changed "$SITE_DIR/shared-paths.txt" "/etc/codelab/$SITE.shared-paths" 644
 
-# --- php-fpm pool ---
-# The fpm master may already serve other sites: validate first, reload gracefully, never restart.
-CHANGED=0
-render_template "$SITE_DIR/php-fpm-pool.conf" "$tmp/pool.conf"
-pool_file="/etc/php/$PHP_VERSION/fpm/pool.d/$POOL_NAME.conf"
-install_if_changed "$tmp/pool.conf" "$pool_file" 644
-if [ "$CHANGED" = 1 ]; then
-    if ! "php-fpm$PHP_VERSION" -t 2>"$tmp/fpm-test"; then
-        cat "$tmp/fpm-test" >&2
-        rm -f "$pool_file"
-        die "php-fpm config invalid; pool removed, running fpm untouched"
+if [ "$KIND" != go ]; then
+    # --- php-fpm pool ---
+    # The fpm master may already serve other sites: validate first, reload gracefully, never restart.
+    CHANGED=0
+    render_template "$SITE_DIR/php-fpm-pool.conf" "$tmp/pool.conf"
+    pool_file="/etc/php/$PHP_VERSION/fpm/pool.d/$POOL_NAME.conf"
+    install_if_changed "$tmp/pool.conf" "$pool_file" 644
+    if [ "$CHANGED" = 1 ]; then
+        if ! "php-fpm$PHP_VERSION" -t 2>"$tmp/fpm-test"; then
+            cat "$tmp/fpm-test" >&2
+            rm -f "$pool_file"
+            die "php-fpm config invalid; pool removed, running fpm untouched"
+        fi
     fi
-fi
-if ! systemctl is-active --quiet "php$PHP_VERSION-fpm"; then
-    systemctl start "php$PHP_VERSION-fpm"
-    log "changed:   php$PHP_VERSION-fpm started"
-elif [ "$CHANGED" = 1 ]; then
-    systemctl reload "php$PHP_VERSION-fpm"
-    log "changed:   php$PHP_VERSION-fpm reloaded"
-fi
+    if ! systemctl is-active --quiet "php$PHP_VERSION-fpm"; then
+        systemctl start "php$PHP_VERSION-fpm"
+        log "changed:   php$PHP_VERSION-fpm started"
+    elif [ "$CHANGED" = 1 ]; then
+        systemctl reload "php$PHP_VERSION-fpm"
+        log "changed:   php$PHP_VERSION-fpm reloaded"
+    fi
 
-# --- fpm log rotation ---
-cat >"$tmp/logrotate" <<EOF
+    # --- fpm log rotation ---
+    cat >"$tmp/logrotate" <<EOF
 /var/log/php${PHP_VERSION}-fpm-${POOL_NAME}.log {
     weekly
     rotate 4
@@ -52,7 +53,8 @@ cat >"$tmp/logrotate" <<EOF
     endscript
 }
 EOF
-install_if_changed "$tmp/logrotate" "/etc/logrotate.d/php${PHP_VERSION}-fpm-${POOL_NAME}" 644
+    install_if_changed "$tmp/logrotate" "/etc/logrotate.d/php${PHP_VERSION}-fpm-${POOL_NAME}" 644
+fi
 
 # --- nginx vhost ---
 # TENANTS="host:KODE ..." maps a school host to its yayasan portal (see sites/halokes/nginx.conf).
@@ -82,11 +84,32 @@ if [ "$CHANGED" = 1 ]; then
     log "changed:   nginx reloaded"
 fi
 
-# --- sudoers: deploy may reload only its own fpm ---
+# --- systemd unit (go sites) ---
+if [ "$KIND" = go ]; then
+    [[ "$APP_PORT" =~ ^[0-9]+$ ]] || die "APP_PORT must be a number"
+    [[ "$SERVICE" =~ ^[a-z0-9-]+$ ]] || die "SERVICE must be a unit name"
+    CHANGED=0
+    render_template "$SITE_DIR/systemd.service" "$tmp/unit"
+    install_if_changed "$tmp/unit" "/etc/systemd/system/$SERVICE.service" 644
+    [ "$CHANGED" = 0 ] || systemctl daemon-reload
+    systemctl enable "$SERVICE.service" >/dev/null 2>&1 || true
+    # A port held by something other than this unit would make the first deploy fail late.
+    if [ -n "$(ss -ltnH "sport = :$APP_PORT")" ] && ! systemctl is-active --quiet "$SERVICE.service"; then
+        die "port $APP_PORT is already in use by another process"
+    fi
+fi
+
+# --- sudoers: deploy may reload only its own fpm, or restart only its own unit ---
 CHANGED=0
-cat >"$tmp/sudoers" <<EOF
+if [ "$KIND" = go ]; then
+    cat >"$tmp/sudoers" <<EOF
+$DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/systemctl restart $SERVICE.service
+EOF
+else
+    cat >"$tmp/sudoers" <<EOF
 $DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/systemctl reload php$PHP_VERSION-fpm
 EOF
+fi
 visudo -cf "$tmp/sudoers" >/dev/null || die "generated sudoers invalid"
 install_if_changed "$tmp/sudoers" "/etc/sudoers.d/codelab-$SITE" 440
 

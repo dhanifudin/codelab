@@ -1,0 +1,4 @@
+# type name content proxied ttl     (name "@" = zone apex; ttl "auto" or seconds)
+# Managed by scripts/cf-dns.sh. Records not listed here are left alone.
+# No cf-zone-settings file: those apply to the whole dhanifudin.com zone.
+A license 194.127.193.198 true auto

@@ -12,11 +12,15 @@ SHA=${2:?sha}
 source "/etc/codelab/$SITE.conf"
 REL="$BASE/releases/$SHA"
 SHARED="$BASE/shared"
-PHP="php$PHP_VERSION"
+KIND=${KIND:-laravel}
 
 [ -d "$REL" ] || { echo "release $REL missing" >&2; exit 1; }
 [ -s "$SHARED/.env" ] || { echo "$SHARED/.env missing" >&2; exit 1; }
 chmod 600 "$SHARED/.env"
+
+# Laravel: persistent paths, writable dirs, migrations and caches before the switch.
+if [ "$KIND" = laravel ]; then
+PHP="php$PHP_VERSION"
 
 # 1. Persistent paths: seed once from the release (committed samples), then link.
 while IFS= read -r path; do
@@ -53,12 +57,32 @@ cd "$REL"
 "$PHP" artisan config:cache
 "$PHP" artisan route:cache
 "$PHP" artisan view:cache
+fi
+
+# Go: the release is the built binary; the service applies its own migrations at start.
+if [ "$KIND" = go ]; then
+    [ -x "$REL/licensed" ] || chmod 755 "$REL/licensed"
+    [ -x "$REL/licensed" ] || { echo "$REL/licensed missing" >&2; exit 1; }
+fi
 
 # 4. Atomic switch.
 PREVIOUS=$(readlink "$BASE/current" 2>/dev/null || true)
 ln -sfn "releases/$SHA" "$BASE/current.new"
 mv -T "$BASE/current.new" "$BASE/current"
-sudo -n /usr/bin/systemctl reload "php$PHP_VERSION-fpm"
+if [ "$KIND" = go ]; then
+    if ! sudo -n /usr/bin/systemctl restart "$SERVICE.service"; then
+        # The caller only rolls back after a successful activate, so undo the switch here.
+        if [ -n "$PREVIOUS" ]; then
+            ln -sfn "$PREVIOUS" "$BASE/current.new"
+            mv -T "$BASE/current.new" "$BASE/current"
+            sudo -n /usr/bin/systemctl restart "$SERVICE.service" || true
+        fi
+        echo "restart of $SERVICE failed; switched back to ${PREVIOUS:-nothing}" >&2
+        exit 1
+    fi
+else
+    sudo -n /usr/bin/systemctl reload "php$PHP_VERSION-fpm"
+fi
 echo "activated $SHA (previous: ${PREVIOUS:-none})"
 
 # 5. Prune: keep the newest KEEP_RELEASES (never the active one).
