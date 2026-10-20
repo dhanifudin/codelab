@@ -17,4 +17,9 @@ public/sertifikat
 public/dokumenPR
 public/dokumenrev
 public/template_dokumen
+public/template_berita
+public/template_pengesahan
+public/template_rubrik
+public/dokumen
+public/dokumen_auditee
 public/landing_images
