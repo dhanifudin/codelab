@@ -16,7 +16,7 @@ Source: `dhanifudin/spi.polinema.ac.id` at `main` (Laravel 9.52). The legacy app
 
 ## Fixed in the app before the first deploy
 
-Found by a pre-deploy review; verified on PHP 8.3 + MariaDB 10.11 (migrate, the bootstrap seeder list, `config:cache`/`route:cache`/`view:cache`, and HTTP checks per role).
+Found by a pre-deploy review; verified on PHP 8.3 and 8.4 + MariaDB 10.11 (production runs 8.4, already on the VPS; Laravel 9 does not officially support it, and the checks showed no errors or deprecation noise) (migrate, the bootstrap seeder list, `config:cache`/`route:cache`/`view:cache`, and HTTP checks per role).
 
 | Issue | Fix |
 |---|---|

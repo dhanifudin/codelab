@@ -6,7 +6,7 @@ Context: the Laravel 9 app is end-of-life and needs structural security work. It
 |---|---|
 | Location | branch `v2` in `dhanifudin/spi.polinema.ac.id`, merged to `main` at cutover (the same dispatch workflow then deploys it) |
 | Stack | latest supported Laravel, Filament v4 admin panel, public landing page in plain Blade |
-| PHP | 8.4 or 8.5; new fpm pool on the existing `php8.4-fpm`/`php8.5-fpm` already on the VPS, then retire `php8.3-fpm` |
+| PHP | 8.4 or 8.5; new fpm pool on the existing `php8.4-fpm`/`php8.5-fpm` already on the VPS (the legacy app already runs in its own pool on `php8.4-fpm`) |
 | Authorization | policies on every Filament resource; roles from the old `levels` table (Super Admin, Admin, Ketua, Anggota, Auditee, Sekretaris) |
 | Registration | admin-created accounts only (or approval-gated with a fixed default role) |
 | Uploads | Cloudflare R2 via `league/flysystem-aws-s3-v3`. Landing images: public bucket/path. Documents, signatures, certificates, letters: private bucket, served through a controller with a policy check plus short-lived `temporaryUrl()`. |
