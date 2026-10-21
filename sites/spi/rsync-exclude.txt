@@ -19,3 +19,23 @@ pelaporan
 /storage/framework/cache/data/*
 /storage/framework/sessions/*
 /storage/framework/views/*
+# Sample uploads committed in the app repo: production starts with empty user-data folders.
+/public/tanda_tangans/*
+/public/profile_pictures/*
+/public/hasil_reviu/*
+/public/hasil_berita/*
+/public/hasil_pengesahan/*
+/public/hasil_rubrik/*
+/public/hasil_akhir/*
+/public/koreksi_reviu/*
+/public/koreksi_berita/*
+/public/koreksi_pengesahan/*
+/public/koreksi_rubrik/*
+/public/koreksi_reviu_PIC/*
+/public/surat_tugas/*
+/public/dokumen_tindaklanjut/*
+/public/sertifikat/*
+/public/dokumenPR/*
+/public/dokumenrev/*
+/public/dokumen/*
+/public/dokumen_auditee/*

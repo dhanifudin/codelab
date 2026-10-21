@@ -6,7 +6,7 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 |---|---|---|
 | `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | active; DNS moving to Cloudflare, see `docs/halokes.md` |
 | `license.dhanifudin.com` | `dhanifudin/license.dhanifudin.com` (Go, private) | `KIND=go` binary site; see `docs/license.md` |
-| `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | postponed; config ready but not provisioned |
+| `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | first deploy in progress; HTTPS follows once Polinema IT points DNS here (`docs/spi-cutover-dns-tls.md`) |
 
 ## Layout
 

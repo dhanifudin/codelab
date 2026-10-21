@@ -68,3 +68,27 @@ cert_covers() {
     done <<<"$sans"
     return 1
 }
+
+# local_ipv4s: global IPv4 addresses configured on this machine.
+local_ipv4s() { ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1; }
+
+# resolve_ipv4 <name>: A records from a public resolver (falls back to the system resolver).
+resolve_ipv4() {
+    local name=$1
+    if command -v dig >/dev/null 2>&1; then
+        dig +short +time=5 +tries=2 A "$name" @1.1.1.1 | grep -E '^[0-9]+(\.[0-9]+){3}$' || true
+    else
+        getent ahostsv4 "$name" | awk '{print $1}' | sort -u || true
+    fi
+}
+
+# resolves_to_this_host <name>: some A record of <name> is an address of this machine, or $PUBLIC_IP
+# (for hosts whose public address is NATed and not configured on an interface).
+resolves_to_this_host() {
+    local ip
+    for ip in $(resolve_ipv4 "$1"); do
+        [ -n "${PUBLIC_IP:-}" ] && [ "$ip" = "$PUBLIC_IP" ] && return 0
+        local_ipv4s | grep -qxF -- "$ip" && return 0
+    done
+    return 1
+}

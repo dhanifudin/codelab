@@ -1,38 +1,41 @@
-# DNS and HTTPS cutover for spi.polinema.ac.id
+# spi.polinema.ac.id: first deploy, DNS and HTTPS
 
-DNS for `polinema.ac.id` is controlled by Polinema IT, so this is a request plus a few commands.
+The DNS zone `polinema.ac.id` is managed by Polinema IT, so the certificate is issued over HTTP-01 (`TLS=letsencrypt-webroot` in `sites/spi/site.conf`): IT only has to point the A record at this server. Provisioning checks DNS itself and keeps the site on plain HTTP until it does.
 
-## 1. Test before DNS
+## 1. One-time setup
 
-1. Add to `/etc/hosts` on your machine: `194.127.193.198 spi.polinema.ac.id`
-2. Browse to `http://spi.polinema.ac.id` and log in with the Super Admin from the bootstrap workflow.
-3. Remove the line when done, so you test real DNS later.
+1. **Read access to the private app repo.** `APP_READ_TOKEN` must be able to read `dhanifudin/spi.polinema.ac.id`: GitHub, Settings, Developer settings, Fine-grained tokens, open the token, Repository access, add the repo (see `docs/tokens.md`).
+2. `scripts/setup-github.sh spi` in a normal terminal. It generates the app key, DB password and admin password into `~/.config/codelab/spi.env` and sets the `SPI_*` secrets.
+3. `scripts/provision-remote.sh codelab spi` (run it twice; the second run must report no changes). Then run **Deploy spi** and **Bootstrap spi data** from the Actions tab.
 
-reCAPTCHA keys must list `spi.polinema.ac.id` as an allowed domain. Until keys exist, leave `SPI_NOCAPTCHA_*` unset (the login form may still render the widget; that is an app issue tracked for v2).
+User-data folders (`hasil_*`, `koreksi_*`, `surat_tugas`, `sertifikat`, `tanda_tangans`, ...) start empty on purpose: the sample files committed in the app repo are neither uploaded nor copied into production. Only the document templates (`template_*`) and the `storage` skeleton are seeded.
 
-## 2. Ask Polinema IT
+## 2. Test before DNS
 
-Create an `A` record: `spi.polinema.ac.id` to `194.127.193.198` (check the server's current public IP first). Port 80 and 443 must be reachable from the internet, because Let's Encrypt validates over HTTP.
+Add `194.127.193.198 spi.polinema.ac.id` to `/etc/hosts` on your machine, open `http://spi.polinema.ac.id` and log in with the Super Admin from the bootstrap. Remove the line afterwards so you test real DNS later. The site is HTTP-only at this stage.
 
-## 3. Issue the certificate
+## 3. Ask Polinema IT
 
-After `dig +short spi.polinema.ac.id` returns the server IP:
+Today the record points at `103.170.197.231`, which does not answer. Message to send:
 
-```bash
-ssh codelab
-sudo certbot --nginx -d spi.polinema.ac.id
-```
+> Please change the DNS record for `spi.polinema.ac.id` to an `A` record with value `194.127.193.198` (the Cloudflare orange cloud off, "DNS only", if the zone is proxied). Ports 80 and 443 on that address are open. We use Let's Encrypt for HTTPS, which validates over port 80, so the record must stay pointed at this address.
 
-Certbot edits `/etc/nginx/sites-available/spi.polinema.ac.id.conf` in place and installs renewal. Re-running `provision/provision.sh` afterwards would overwrite those edits with the repo's HTTP-only vhost. Before the next provisioning run, copy the certbot-managed server blocks back into `sites/spi/nginx.conf` (keeping the `@VAR@` placeholders) and commit.
+## 4. After the record changes
 
-## 4. Switch the app to HTTPS
+1. `dig +short spi.polinema.ac.id @1.1.1.1` returns `194.127.193.198`.
+2. `scripts/provision-remote.sh codelab spi`. The log shows `certificate issued for spi.polinema.ac.id` and the vhost switches to HTTPS (HTTP redirects to HTTPS, HSTS 30 days). While DNS is wrong it logs `pending:` instead and nothing breaks.
+3. If `pending: vhost for ... not installed yet` appears, run provisioning once more.
+4. `gh variable set SPI_APP_URL --body https://spi.polinema.ac.id --repo dhanifudin/codelab`, then run **Deploy spi** so `APP_URL` and secure cookies apply.
+5. Proxied record (orange cloud) instead of DNS only: set `TLS_DNS_CHECK=skip` in `site.conf` (the resolved address is then a Cloudflare one) and use SSL mode Full (strict) on their side.
 
-```bash
-gh variable set SPI_APP_URL --body https://spi.polinema.ac.id --repo dhanifudin/codelab
-```
+## 5. Auto-deploy
 
-Then run **Deploy spi**. This sets `APP_URL` and `SESSION_SECURE_COOKIE=true`.
+The app repo already contains `.github/workflows/notify-codelab.yml`. Create `CODELAB_DISPATCH_TOKEN` (`docs/tokens.md`, section 4) and set it with `gh secret set CODELAB_DISPATCH_TOKEN --repo dhanifudin/spi.polinema.ac.id`.
 
-## Later: halokes.com
+## If the certificate fails
 
-Same process with a `sites/halokes/` directory once the server, repo and domain exist.
+The site keeps serving over HTTP and the next provisioning run retries. See `/var/log/letsencrypt/letsencrypt.log`. Manual fallback: `sudo certbot certonly --webroot -w /var/www/letsencrypt --cert-name spi.polinema.ac.id -d spi.polinema.ac.id`, then re-run provisioning.
+
+## Rolling DNS back
+
+Point the record back to the previous address. The VPS keeps the certificate; nothing needs to change here.

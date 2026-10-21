@@ -37,3 +37,4 @@ Found by a pre-deploy review; verified on PHP 8.3 and 8.4 + MariaDB 10.11 (produ
 - `GET /logout` (CSRF logout), CKEditor 4 and other CDN assets are end-of-life or unpinned.
 - Routes with no controller method or view (they return a 500): `posts.update`, `users.edit`/`update`, `dokumens.edit`/`update`, `unit-kerja.create`/`show`/`edit`, `petas.show`, `MR.create`/`show`, `/rtm/search` (`post.RTM`), `posts.comment` (`comments.create`), `MR.edit` (`elements.edit`), and the unused `manajemen-risiko/detail-unit/{id}/kegiatan/{id}` (`partials.detail_risiko_kegiatan`).
 - Sidebar entry for `/jenis-template`, `/entitas`, `/bobot`, `/verif`, `/kesimpulan` and `/kegiatan` does not exist; they are reachable by URL only.
+| Sample documents and signatures committed in the app repo | user-data upload folders start empty in production (`shared-paths.txt` flag `empty`, excluded from the release) |

@@ -174,11 +174,13 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
-          port=80; [ "$SMOKE_SCHEME" = https ] && port=443
+          # Both ports resolve to the origin and up to 2 redirects are followed, so the same check passes
+          # before (HTTP) and after (HTTP redirecting to HTTPS) a site gets its certificate.
           code=000
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' \
-              --resolve "${DOMAIN}:${port}:${SSH_HOST}" "${SMOKE_SCHEME}://${DOMAIN}${SMOKE_PATH}" || true)
+            code=$(curl -s -L --max-redirs 2 -o /dev/null -w '%{http_code}' \
+              --resolve "${DOMAIN}:80:${SSH_HOST}" --resolve "${DOMAIN}:443:${SSH_HOST}" \
+              "${SMOKE_SCHEME}://${DOMAIN}${SMOKE_PATH}" || true)
             [ "$code" = 200 ] && break
             sleep 3
           done

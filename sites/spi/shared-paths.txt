@@ -1,25 +1,27 @@
+# path [empty]  --  persistent across releases (shared/). `empty` = user data: create the folder empty,
+# never seed it from the committed sample files in the release.
 storage
-public/tanda_tangans
-public/profile_pictures
-public/hasil_reviu
-public/hasil_berita
-public/hasil_pengesahan
-public/hasil_rubrik
-public/hasil_akhir
-public/koreksi_reviu
-public/koreksi_berita
-public/koreksi_pengesahan
-public/koreksi_rubrik
-public/koreksi_reviu_PIC
-public/surat_tugas
-public/dokumen_tindaklanjut
-public/sertifikat
-public/dokumenPR
-public/dokumenrev
+public/tanda_tangans empty
+public/profile_pictures empty
+public/hasil_reviu empty
+public/hasil_berita empty
+public/hasil_pengesahan empty
+public/hasil_rubrik empty
+public/hasil_akhir empty
+public/koreksi_reviu empty
+public/koreksi_berita empty
+public/koreksi_pengesahan empty
+public/koreksi_rubrik empty
+public/koreksi_reviu_PIC empty
+public/surat_tugas empty
+public/dokumen_tindaklanjut empty
+public/sertifikat empty
+public/dokumenPR empty
+public/dokumenrev empty
+public/dokumen empty
+public/dokumen_auditee empty
 public/template_dokumen
 public/template_berita
 public/template_pengesahan
 public/template_rubrik
-public/dokumen
-public/dokumen_auditee
 public/landing_images

@@ -22,12 +22,14 @@ chmod 600 "$SHARED/.env"
 if [ "$KIND" = laravel ]; then
 PHP="php$PHP_VERSION"
 
-# 1. Persistent paths: seed once from the release (committed samples), then link.
-while IFS= read -r path; do
+# 1. Persistent paths: seed once from the release (committed templates), then link.
+# A line is `path` or `path empty`; `empty` never copies the release's sample files into shared/.
+while read -r path flag _; do
     [ -n "$path" ] || continue
+    [[ "$path" == \#* ]] && continue
     if [ ! -e "$SHARED/$path" ]; then
         mkdir -p "$(dirname "$SHARED/$path")"
-        if [ -d "$REL/$path" ] && [ ! -L "$REL/$path" ]; then
+        if [ "$flag" != empty ] && [ -d "$REL/$path" ] && [ ! -L "$REL/$path" ]; then
             cp -a "$REL/$path" "$SHARED/$path"
         else
             mkdir -p "$SHARED/$path"

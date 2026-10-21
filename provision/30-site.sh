@@ -66,16 +66,41 @@ for t in $TENANTS; do
 done
 TENANT_HOSTS=${TENANT_HOSTS% }
 CHANGED=0
-render_template "$SITE_DIR/nginx.conf" "$tmp/vhost.conf"
-install_if_changed "$tmp/vhost.conf" "/etc/nginx/sites-available/$DOMAIN.conf" 644
-if [ "$(readlink "/etc/nginx/sites-enabled/$DOMAIN.conf" 2>/dev/null)" != "/etc/nginx/sites-available/$DOMAIN.conf" ]; then
-    ln -sfn "/etc/nginx/sites-available/$DOMAIN.conf" "/etc/nginx/sites-enabled/$DOMAIN.conf"
+vhost_file="/etc/nginx/sites-available/$DOMAIN.conf"
+snippet_file="/etc/nginx/snippets/$SITE-app.conf"
+# Remember what is live so a bad render can be rolled back instead of taking the site offline.
+[ ! -f "$vhost_file" ] || cp -p "$vhost_file" "$tmp/vhost.prev"
+[ ! -f "$snippet_file" ] || cp -p "$snippet_file" "$tmp/snippet.prev"
+
+# Optional shared locations, included by the http and https variants.
+if [ -f "$SITE_DIR/app.conf" ]; then
+    render_template "$SITE_DIR/app.conf" "$tmp/app.conf"
+    install_if_changed "$tmp/app.conf" "$snippet_file" 644
+fi
+# Template: HTTPS variant once a certificate exists, else the HTTP variant, else the single nginx.conf.
+vhost_tpl="$SITE_DIR/nginx.conf"
+if [ -f "$SITE_DIR/nginx-https.conf" ] && [ "${TLS_READY:-0}" = 1 ]; then
+    vhost_tpl="$SITE_DIR/nginx-https.conf"
+elif [ -f "$SITE_DIR/nginx-http.conf" ]; then
+    vhost_tpl="$SITE_DIR/nginx-http.conf"
+fi
+render_template "$vhost_tpl" "$tmp/vhost.conf"
+install_if_changed "$tmp/vhost.conf" "$vhost_file" 644
+if [ "$(readlink "/etc/nginx/sites-enabled/$DOMAIN.conf" 2>/dev/null)" != "$vhost_file" ]; then
+    ln -sfn "$vhost_file" "/etc/nginx/sites-enabled/$DOMAIN.conf"
     log "changed:   /etc/nginx/sites-enabled/$DOMAIN.conf linked"
     CHANGED=1
 fi
-# nginx -t must pass before every reload; on failure disable the vhost so other sites keep working.
+# nginx -t must pass before every reload. On failure put the previous files back (or unlink a new vhost)
+# so other sites, and this one if it was already live, keep working.
 if ! nginx -t 2>"$tmp/nginx-test"; then
     cat "$tmp/nginx-test" >&2
+    if [ -f "$tmp/vhost.prev" ]; then
+        cp -p "$tmp/vhost.prev" "$vhost_file"
+        [ ! -f "$tmp/snippet.prev" ] || cp -p "$tmp/snippet.prev" "$snippet_file"
+        nginx -t 2>/dev/null && systemctl reload nginx || true
+        die "nginx config invalid; previous vhost restored"
+    fi
     rm -f "/etc/nginx/sites-enabled/$DOMAIN.conf"
     die "nginx config invalid; vhost unlinked, nginx untouched"
 fi
