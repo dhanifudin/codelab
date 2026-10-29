@@ -17,12 +17,22 @@ provision/           idempotent root scripts run on the VPS (swap, PHP, TLS, Clo
 scripts/             local helpers: setup-github.sh, provision-remote.sh, render-env.sh, cf-dns.sh
 scripts/remote/      run on the VPS by CI: activate.sh, rollback.sh, bootstrap.sh, bootstrap-spi.sh
 .github/workflows/   _deploy.yml (reusable), deploy-<site>.yml, bootstrap.yml, spi-bootstrap-db.yml
-docs/                cutover runbook, findings about the spi app, v2 decisions
+docs/                runbook, configuration reference, troubleshooting, tokens, per-site notes
 ```
 
 Adding a site means adding `sites/<site>/` with the same files. `KIND=go` sites (see `docs/license.md`) have a `systemd.service` instead of `php-fpm-pool.conf`, and no PHP, Composer or artisan steps. `provision/*.sh` and `activate.sh` are site-agnostic and read `site.conf`.
 
-## First-time setup of a site
+## Documentation
+
+| Read this | When |
+|---|---|
+| [docs/runbook.md](docs/runbook.md) | adding a site end to end, deploying, rolling back, operating, removing a site |
+| [docs/site-config-reference.md](docs/site-config-reference.md) | what every file, `site.conf` key, secret and TLS mode means |
+| [docs/tokens.md](docs/tokens.md) | creating each token (click paths, permissions) |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | something failed |
+| [docs/halokes.md](docs/halokes.md), [docs/spi-cutover-dns-tls.md](docs/spi-cutover-dns-tls.md), [docs/license.md](docs/license.md), [docs/cloudflare-migration.md](docs/cloudflare-migration.md) | site-specific notes |
+
+## First-time setup of a site (short version)
 
 1. DNS: for Cloudflare-fronted sites follow `docs/cloudflare-migration.md` (`scripts/cf-dns.sh <site>`).
 2. `scripts/setup-github.sh <site> codelab` creates the private repo, the deploy SSH key (`deploy.pub`) and the GitHub secrets. Generated passwords are kept in `~/.config/codelab/<site>.env`, outside git. Commit and push `deploy.pub`.
@@ -30,7 +40,7 @@ Adding a site means adding `sites/<site>/` with the same files. `KIND=go` sites 
 4. Run the **Deploy <site>** workflow (Actions, Run workflow), then **Bootstrap site data** once.
 5. Add the dispatch token and workflow to the app repo so every push to its `main` deploys (`sites/<site>/app-dispatch.yml`; the wizard prints the token steps).
 
-Where each token comes from: `docs/tokens.md`. Per-site runbooks: `docs/halokes.md`; spi is described in `docs/spi-app-issues.md` and `docs/spi-cutover-dns-tls.md`.
+The full procedure with commands, ordering rules and checks is in [docs/runbook.md](docs/runbook.md).
 
 ## Deploy model
 
