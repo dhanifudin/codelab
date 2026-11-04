@@ -13,10 +13,10 @@ The data comes from `DemoSeeder` in the app repo and is created, refreshed or re
 |---|---|
 | App release | `main` at `ba103145` in `dhanifudin/halokes`: PRs #6 (modules), #7 (`syncAll` fix), #8 and #10 (`DemoSeeder`), #9 (tenant login hints) and #11 (central login demo owner) are all deployed |
 | Demo data | seeded and complete: 2 schools, 3 classes, 41 children, 31 parents, 8 staff accounts, 12 announcements, 21 materi, 96 journal entries, 32 rapor, 8 archived rapor, 3 registrations |
-| Demo platform owner | `owner@yayasan.com` exists (seeded with `include_owner = true`); run `purge` to remove it |
-| Quick-login hints | **on** (`HALOKES_DEMO_LOGIN_HINTS` is set in this repo). The tenant login page lists the five role accounts and the central login page offers the demo owner. Both buttons fill the **email only**: `HALOKES_DEMO_LOGIN_PASSWORD` is not set, so no password is on any page |
+| Demo platform owner | **removed** on 2026-11-04 after the demo (only that account, by exact email, role and name; sessions cleared). Re-create it with **Seed demo** `include_owner = true` |
+| Quick-login hints | **on** (`HALOKES_DEMO_LOGIN_HINTS` is set in this repo). The tenant login page lists the five role accounts; the central login page offers the demo owner only while that account exists (not now). Both buttons fill the **email only**: `HALOKES_DEMO_LOGIN_PASSWORD` is not set, so no password is on any page |
 | Secrets in use | `HALOKES_DEMO_PASSWORD` (shared password of the tenant accounts), `HALOKES_DEMO_OWNER_PASSWORD` (demo owner, separate), `HALOKES_DEMO_LOGIN_HINTS` (flag; a repository variable works too) |
-| Last verification | `scripts/demo-smoke.sh` with `EXPECT_HINTS=1`, `DEMO_OWNER_PASSWORD`, `OWNER_EMAIL`/`OWNER_PASSWORD`: **47 of 47 checks passed** (every role logs in and opens its pages; both owners reach the owner area; no password appears in the central login page) |
+| Last verification | `scripts/demo-smoke.sh` with `EXPECT_HINTS=1`, `OWNER_EMAIL`/`OWNER_PASSWORD` after the owner was removed: **44 of 44 checks passed** (with the demo owner present it was 47 of 47) (every role logs in and opens its pages; both owners reach the owner area; no password appears in the central login page) |
 | Your real owner | `dhanifudin@gmail.com`, untouched and never shown |
 
 ## Setup (once)
@@ -37,7 +37,7 @@ The data comes from `DemoSeeder` in the app repo and is created, refreshed or re
 | Refresh dates before a presentation | run **Seed demo** again (`seed`); announcements, attendance, journals and growth records move to the current date |
 | Change the demo password | update `HALOKES_DEMO_PASSWORD`, run **Seed demo** with `reset_passwords = true` |
 | Remove all demo data | **Seed demo** with `action = purge`: demo users, schools, children, rapor, files and demo registrations go; the yayasan, the owner, modules and the global semester/template stay |
-| Demo platform owner | **Seed demo** with `include_owner = true` (needs the secret `HALOKES_DEMO_OWNER_PASSWORD`); `purge` removes it again |
+| Demo platform owner | **Seed demo** with `include_owner = true` (needs the secret `HALOKES_DEMO_OWNER_PASSWORD`). `purge` removes it **together with all other demo data**. To remove only the owner, delete that one row on the server (guarded by exact email, role and name) and its sessions: `sudo mysql halokes -e "delete s from sessions s join users u on u.id=s.user_id where u.email='owner@yayasan.com' and u.role='owner' and u.name='Owner Demo'; delete from users where email='owner@yayasan.com' and role='owner' and name='Owner Demo';"` |
 | Quick-login hints (tenant login page and central login page) | one flag, `HALOKES_DEMO_LOGIN_HINTS=true` (repository variable or secret), then deploy. The tenant login page `/y/ABS/login` lists the five role accounts; https://halokes.com/login offers `owner@yayasan.com` **only if that account exists**. Both buttons fill the email only. To also fill a password set the secret `HALOKES_DEMO_LOGIN_PASSWORD`; that publishes it to every visitor, so it is left unset. Turn the hints off by removing the flag and redeploying |
 | Check everything works | `scripts/demo-smoke.sh`. Full run, as used for the final verification: `set -a; . ~/.config/codelab/halokes.env; set +a; DEMO_OWNER_PASSWORD="$HALOKES_DEMO_OWNER_PASSWORD" EXPECT_HINTS=1 OWNER_EMAIL="$HALOKES_ADMIN_EMAIL" OWNER_PASSWORD="$HALOKES_ADMIN_PASSWORD" scripts/demo-smoke.sh`. Without `EXPECT_HINTS=1` it fails when the hints are on. It pauses about a minute when the login throttle is hit |
 
