@@ -1,0 +1,69 @@
+name: Seed demo (halokes)
+
+# Creates, refreshes or removes the demo data of the ABS yayasan (abs.halokes.com): DemoSeeder in the app.
+# Run it after a deploy that contains the seeder, and again before a presentation (dates are relative to today).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: seed (create or refresh) or purge (remove everything the demo created)
+        type: choice
+        options: [seed, purge]
+        default: seed
+        required: true
+      reset_passwords:
+        description: Also reset the password of demo accounts that already exist to HALOKES_DEMO_PASSWORD
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-halokes
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Run DemoSeeder
+        env:
+          ACTION: ${{ inputs.action }}
+          RESET: ${{ inputs.reset_passwords }}
+          DEMO_PASSWORD: ${{ secrets.HALOKES_DEMO_PASSWORD }}
+        run: |
+          # Variables go to the remote script over stdin (never argv): HALOKES_DEMO_* only.
+          if [ "$ACTION" = purge ]; then
+            lines='HALOKES_DEMO_PURGE=1'
+          else
+            [ -n "$DEMO_PASSWORD" ] || { echo "secret HALOKES_DEMO_PASSWORD is not set" >&2; exit 1; }
+            lines="HALOKES_DEMO_PASSWORD=$DEMO_PASSWORD"
+            [ "$RESET" = true ] && lines="$lines"$'\nHALOKES_DEMO_RESET=1'
+          fi
+          scp -q scripts/remote/bootstrap.sh vps:/tmp/bootstrap-demo.sh
+          printf '%s\n' "$lines" \
+            | ssh vps 'bash /tmp/bootstrap-demo.sh halokes DemoSeeder; rc=$?; rm -f /tmp/bootstrap-demo.sh; exit $rc'

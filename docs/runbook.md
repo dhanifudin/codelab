@@ -115,7 +115,7 @@ gh run watch --repo dhanifudin/codelab                      # pick the run
 gh workflow run bootstrap.yml --repo dhanifudin/codelab -f site=<site>
 ```
 
-The `site` input of `bootstrap.yml` is a fixed list in the workflow file: add the site there. `spi` has its own `spi-bootstrap-db.yml`. Bootstrap seeds reference data and creates the first admin from `<SITE>_ADMIN_*` secrets; seeders must be idempotent and must never create demo users in production.
+The `site` input of `bootstrap.yml` is a fixed list in the workflow file: add the site there. A site may also have a demo dataset: see [halokes-demo.md](halokes-demo.md) for the pattern (`seed-demo.yml`, `scripts/demo-smoke.sh`). `spi` has its own `spi-bootstrap-db.yml`. Bootstrap seeds reference data and creates the first admin from `<SITE>_ADMIN_*` secrets; seeders must be idempotent and must never create demo users in production.
 
 The deploy succeeds only if the smoke test (`SMOKE_PATH`, followed through redirects, sent straight to the origin) returns 200. Otherwise `rollback.sh` points `current` back at the previous release.
 

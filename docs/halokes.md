@@ -1,6 +1,6 @@
 # halokes.com runbook
 
-App: `dhanifudin/halokes` (private), Laravel 12, Blade plus a React landing page built with Vite. Multi-tenant by Host header (`domains` table). Only `halokes.com` and `www.halokes.com` are served for now.
+App: `dhanifudin/halokes` (private), Laravel 12, Blade plus a React landing page built with Vite. Tenants are yayasan portals under `/y/<KODE>`; school hosts such as `abs.halokes.com` are redirected to their portal by nginx. A demo dataset for the ABS yayasan is described in [halokes-demo.md](halokes-demo.md).
 
 | Item | Value |
 |---|---|
@@ -16,8 +16,8 @@ App: `dhanifudin/halokes` (private), Laravel 12, Blade plus a React landing page
 1. Cloudflare zone, tokens, records, nameservers: `docs/cloudflare-migration.md`.
 2. `scripts/setup-github.sh halokes codelab` (tokens: `docs/tokens.md`; non-interactive variables are in the script header). Commit and push `deploy.pub`.
 3. `scripts/provision-remote.sh codelab halokes`. Run it twice: the second run must log only `unchanged:` and `skipped:` lines.
-4. App PRs merged in `dhanifudin/halokes`: schema baseline, `ProductionSeeder`, cleanup, `notify-codelab.yml`.
-5. Actions, **Deploy halokes**, Run workflow. Then Actions, **Bootstrap site data**, site `halokes`.
+4. App PRs merged in `dhanifudin/halokes` (schema baseline, `ProductionSeeder`, cleanup, `notify-codelab.yml`; done).
+5. Actions, **Deploy halokes**, Run workflow. Then Actions, **Bootstrap site data**, site `halokes` (done).
 
 ## Adding a school subdomain
 
@@ -45,7 +45,8 @@ The school's pages return 404 until its yayasan exists.
 
 - **Deploy:** push to the app's `main` (dispatch) or run **Deploy halokes** manually with a ref.
 - **Roll back:** `ssh codelab 'sudo -u deploy bash -s -- halokes' < scripts/remote/rollback.sh`. Migrations are not reverted.
-- **Disk:** the VPS root disk is tight (about 80% used). Each release is a few hundred MB with `vendor/` and `public/build`; two are kept. Uploads grow `shared/storage`; plan R2 before it fills. monit logs a warning above 90% to `/var/log/monit.log`.
+- **Demo data:** Actions, **Seed demo (halokes)**, action `seed` or `purge` ([halokes-demo.md](halokes-demo.md)).
+- **Disk:** the VPS root disk is tight (about 85% used). Each release is a few hundred MB with `vendor/` and `public/build`; two are kept. Uploads grow `shared/storage`; plan R2 before it fills. monit logs a warning above 90% to `/var/log/monit.log`.
 
 ## Known app-side requirements
 

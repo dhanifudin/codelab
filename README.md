@@ -4,7 +4,7 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 
 | Site | App repo | Status |
 |---|---|---|
-| `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | active; DNS moving to Cloudflare, see `docs/halokes.md` |
+| `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | live behind Cloudflare; `abs.halokes.com` school host; demo data (`docs/halokes-demo.md`) |
 | `license.dhanifudin.com` | `dhanifudin/license.dhanifudin.com` (Go, private) | `KIND=go` binary site; see `docs/license.md` |
 | `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | first deploy in progress; HTTPS follows once Polinema IT points DNS here (`docs/spi-cutover-dns-tls.md`) |
 
@@ -14,9 +14,9 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 sites/<site>/        per-site config: site.conf, nginx.conf, php-fpm-pool.conf, env.template, dns.records, ...
 deploy.pub           public half of the repo-wide deploy key
 provision/           idempotent root scripts run on the VPS (swap, PHP, TLS, Cloudflare IPs, vhost + pool, sudoers, DB, monit)
-scripts/             local helpers: setup-github.sh, provision-remote.sh, render-env.sh, cf-dns.sh
+scripts/             local helpers: setup-github.sh, provision-remote.sh, render-env.sh, cf-dns.sh, demo-smoke.sh
 scripts/remote/      run on the VPS by CI: activate.sh, rollback.sh, bootstrap.sh, bootstrap-spi.sh
-.github/workflows/   _deploy.yml (reusable), deploy-<site>.yml, bootstrap.yml, spi-bootstrap-db.yml
+.github/workflows/   _deploy.yml (reusable), deploy-<site>.yml, bootstrap.yml, seed-demo.yml, spi-bootstrap-db.yml
 docs/                runbook, configuration reference, troubleshooting, tokens, per-site notes
 ```
 
@@ -28,6 +28,7 @@ Adding a site means adding `sites/<site>/` with the same files. `KIND=go` sites 
 |---|---|
 | [docs/runbook.md](docs/runbook.md) | adding a site end to end, deploying, rolling back, operating, removing a site |
 | [docs/site-config-reference.md](docs/site-config-reference.md) | what every file, `site.conf` key, secret and TLS mode means |
+| [docs/halokes-demo.md](docs/halokes-demo.md) | creating, refreshing or removing the halokes demo data (abs.halokes.com) |
 | [docs/tokens.md](docs/tokens.md) | creating each token (click paths, permissions) |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | something failed |
 | [docs/halokes.md](docs/halokes.md), [docs/spi-cutover-dns-tls.md](docs/spi-cutover-dns-tls.md), [docs/license.md](docs/license.md), [docs/cloudflare-migration.md](docs/cloudflare-migration.md) | site-specific notes |
