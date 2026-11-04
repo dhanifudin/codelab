@@ -79,6 +79,27 @@ login() { # login <email> <password>  -> sets TOKEN
     esac
 }
 
+# owner_login <platform-url> <email> <password>: platform login (not the tenant portal); waits out the throttle once.
+owner_login() {
+    : >"$JAR"
+    fetch "$1/login"
+    local csrf code
+    csrf=$(grep -oE '<meta name="csrf-token" content="[^"]+"' "$JAR.body" | cut -d'"' -f4)
+    code=$(curl -s -b "$JAR" -c "$JAR" --max-time 60 -o /dev/null -w '%{http_code} %{redirect_url}' --data-urlencode "_token=$csrf" \
+        --data-urlencode "email=$2" --data-urlencode "password=$3" "$1/login") || code=000
+    case $code in
+        429*) if [ "${OWNER_RETRIED:-0}" = 0 ]; then OWNER_RETRIED=1; sleep 62; owner_login "$@"; local rc=$?; OWNER_RETRIED=0; return $rc; fi; return 1 ;;
+        302*/owner/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# owner_page <label> <platform-url> <path>: must end on the owner area itself (not be redirected to the login page)
+owner_page() {
+    fetch "$2$3"
+    if [ "$STATUS" = 200 ] && [[ "$FINAL" == *"$3"* ]] && grep -qiE 'Aboe Bakar|Tunas|Cahaya' "$JAR.body"; then ok "$1 $3"; else bad "$1 $3 -> HTTP $STATUS at ${FINAL#*://*/}"; fi
+}
+
 echo "== public pages ($BASE)"
 public "yayasan portal /y/$KODE" "$BASE/y/$KODE" 'Aboe Bakar|TK|PAUD'
 public "login portal" "$BASE/y/$KODE/login" 'csrf-token'
@@ -142,15 +163,10 @@ if as "wali murid" "wali.01@demo.halokes.com"; then
 fi
 if [ -n "${OWNER_EMAIL:-}" ] && [ -n "${OWNER_PASSWORD:-}" ]; then
     printf '== owner (%s)\n' "$OWNER_EMAIL"
-    : >"$JAR"
-    fetch "${HALOKES_PLATFORM_URL:-https://halokes.com}/login"
-    csrf=$(grep -oE '<meta name="csrf-token" content="[^"]+"' "$JAR.body" | cut -d'"' -f4)
-    curl -s -b "$JAR" -c "$JAR" -o /dev/null --data-urlencode "_token=$csrf" --data-urlencode "email=$OWNER_EMAIL" \
-        --data-urlencode "password=$OWNER_PASSWORD" "${HALOKES_PLATFORM_URL:-https://halokes.com}/login"
-    for p in /owner/yayasans /owner/yayasan-registrations; do
-        fetch "${HALOKES_PLATFORM_URL:-https://halokes.com}$p"
-        if [ "$STATUS" = 200 ] && grep -qE 'Aboe Bakar|Tunas|Cahaya' "$JAR.body"; then ok "owner $p"; else bad "owner $p -> HTTP $STATUS"; fi
-    done
+    if owner_login "${HALOKES_PLATFORM_URL:-https://halokes.com}" "$OWNER_EMAIL" "$OWNER_PASSWORD"; then
+        ok "login"
+        for p in /owner/yayasans /owner/yayasan-registrations; do owner_page owner "${HALOKES_PLATFORM_URL:-https://halokes.com}" "$p"; done
+    else bad "login"; fi
 fi
 
 # Central login page: the demo owner is offered only with hints on and the account present, never with a password.
@@ -176,16 +192,10 @@ elif [ "$searched" = 1 ]; then ok "no demo password in the central login page"
 else ok "central login page password search skipped (passwords shorter than 10 characters)"; fi
 if [ -n "${DEMO_OWNER_PASSWORD:-}" ]; then
     printf '== demo owner (owner@yayasan.com)\n'
-    : >"$JAR"
-    fetch "$PLATFORM/login"
-    csrf=$(grep -oE '<meta name="csrf-token" content="[^"]+"' "$JAR.body" | cut -d'"' -f4)
-    code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' --data-urlencode "_token=$csrf" \
-        --data-urlencode "email=owner@yayasan.com" --data-urlencode "password=$DEMO_OWNER_PASSWORD" "$PLATFORM/login")
-    case $code in 302*owner*) ok "login" ;; *) bad "login ($code)" ;; esac
-    for p in /owner/yayasans /owner/yayasan-registrations; do
-        fetch "$PLATFORM$p"
-        if [ "$STATUS" = 200 ] && grep -qiE 'Aboe Bakar|Tunas|Cahaya' "$JAR.body"; then ok "owner $p"; else bad "owner $p -> HTTP $STATUS"; fi
-    done
+    if owner_login "$PLATFORM" "owner@yayasan.com" "$DEMO_OWNER_PASSWORD"; then
+        ok "login"
+        for p in /owner/yayasans /owner/yayasan-registrations; do owner_page "demo owner" "$PLATFORM" "$p"; done
+    else bad "login"; fi
 fi
 
 echo
