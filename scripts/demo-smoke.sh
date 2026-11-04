@@ -161,7 +161,7 @@ offered=$(grep -oE 'window.DEMO_OWNER = [^;]*;' "$JAR.body" | head -1)
 if [ -n "${DEMO_OWNER_PASSWORD:-}" ] && [ "${EXPECT_HINTS:-0}" = 1 ]; then
     if grep -q 'owner@yayasan.com' <<<"$offered"; then ok "demo owner offered (hints on)"; else bad "demo owner not offered although hints are on: $offered"; fi
 else
-    if grep -q 'null' <<<"$offered"; then ok "no demo owner offered"; else bad "demo owner offered unexpectedly: $offered"; fi
+    if [ -z "$offered" ] || grep -q 'null' <<<"$offered"; then ok "no demo owner offered"; else bad "demo owner offered unexpectedly: $offered"; fi
 fi
 # A short or common password (for example the word "password") also occurs in normal page markup, so a text
 # search for it proves nothing; only search for passwords of at least 10 characters.
