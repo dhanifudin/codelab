@@ -1,14 +1,15 @@
 name: Seed demo (halokes)
 
 # Creates, refreshes or removes the demo data of the ABS yayasan (abs.halokes.com): DemoSeeder in the app.
+# purge-owner removes only the demo platform owner (needs the app release with HALOKES_DEMO_PURGE_OWNER support).
 # Run it after a deploy that contains the seeder, and again before a presentation (dates are relative to today).
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: seed (create or refresh) or purge (remove everything the demo created)
+        description: seed (create or refresh), purge-owner (remove only the demo platform owner), or purge (remove everything the demo created)
         type: choice
-        options: [seed, purge]
+        options: [seed, purge-owner, purge]
         default: seed
         required: true
       reset_passwords:
@@ -65,6 +66,8 @@ jobs:
           # Variables go to the remote script over stdin (never argv): HALOKES_DEMO_* only.
           if [ "$ACTION" = purge ]; then
             lines='HALOKES_DEMO_PURGE=1'
+          elif [ "$ACTION" = purge-owner ]; then
+            lines='HALOKES_DEMO_PURGE_OWNER=1'
           else
             [ -n "$DEMO_PASSWORD" ] || { echo "secret HALOKES_DEMO_PASSWORD is not set" >&2; exit 1; }
             lines="HALOKES_DEMO_PASSWORD=$DEMO_PASSWORD"
