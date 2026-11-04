@@ -84,7 +84,8 @@ public "login portal" "$BASE/y/$KODE/login" 'csrf-token'
 # The login page must not list accounts unless quick-login hints are switched on (DEMO_LOGIN_HINTS).
 : >"$JAR"; fetch "$BASE/y/$KODE/login"
 PTOKEN=$(sed -E 's#.*/y/([^/]+)/login.*#\1#' <<<"$FINAL")
-if grep -q '@demo.halokes.com' "$JAR.body"; then
+# Cloudflare rewrites email addresses in HTML, so look for the quick-login buttons, not for the text.
+if grep -q 'btn-quick-fill' "$JAR.body"; then
     if [ "${EXPECT_HINTS:-0}" = 1 ]; then ok "login page shows demo accounts (hints on, as expected)"; else bad "login page exposes demo accounts while hints should be off"; fi
 else
     if [ "${EXPECT_HINTS:-0}" = 1 ]; then bad "hints expected but no demo accounts on the login page"; else ok "login page lists no accounts"; fi
@@ -101,7 +102,7 @@ as() { # as <role-label> <email>
 NAMES='Aditya|Bima|Cakra|Dafa|Alya|Bella|Citra|Dina|Eka'
 if as "super admin" "super.abs@demo.halokes.com"; then
     page "schools" "/superadmin/schools" 'Aboe Bakar Soemijati'
-    page "users" "/superadmin/users" 'demo.halokes.com'
+    page "users" "/superadmin/users" 'Rina Marlina'
 fi
 if as "admin TK" "admin.tk@demo.halokes.com"; then
     dashboard "dashboard" 'TK Aboe Bakar'
