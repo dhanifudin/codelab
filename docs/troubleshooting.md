@@ -57,6 +57,13 @@ Problems met while building this setup, with the cause and the fix. For the norm
 | Password forgotten, no reset mail | `MAIL_MAILER=log` | Reset from the server with artisan, or configure SMTP. |
 | Laravel 9 shows deprecation notices on PHP 8.4 | framework age | They stay out of responses with `APP_DEBUG=false`; if something fatal appears, install another PHP version from the PPA and set `PHP_VERSION`. |
 
+## abs.halokes.com / school hosts
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Login on a school host just returns to the login page, with the right password | an nginx rule redirected the login form's POST (`/login`) to the portal, turning it into a GET | fixed in `sites/halokes/nginx.conf` (`$tenant_login_kode` redirects only GET/HEAD); re-run provisioning. Testing the app directly (bypassing nginx) cannot catch this, so test logins through the real host |
+| Emails show as `[email protected]` in page text | Cloudflare email obfuscation rewrites addresses in HTML | cosmetic; tests must not match on email text |
+
 ## Tooling quirks
 
 - `certbot renew --dry-run` takes several minutes (one challenge per name, each waiting for DNS). Start it detached on the server and read `/var/log/letsencrypt/letsencrypt.log` for `all simulated renewals succeeded`; an interrupted run ends with "Calling signal 15" and proves nothing.

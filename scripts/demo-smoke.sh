@@ -85,7 +85,7 @@ public "login portal" "$BASE/y/$KODE/login" 'csrf-token'
 : >"$JAR"; fetch "$BASE/y/$KODE/login"
 PTOKEN=$(sed -E 's#.*/y/([^/]+)/login.*#\1#' <<<"$FINAL")
 # Cloudflare rewrites email addresses in HTML, so look for the quick-login buttons, not for the text.
-if grep -q 'btn-quick-fill' "$JAR.body"; then
+if grep -q "onclick=\"fillCredentials('" "$JAR.body"; then
     if [ "${EXPECT_HINTS:-0}" = 1 ]; then ok "login page shows demo accounts (hints on, as expected)"; else bad "login page exposes demo accounts while hints should be off"; fi
 else
     if [ "${EXPECT_HINTS:-0}" = 1 ]; then bad "hints expected but no demo accounts on the login page"; else ok "login page lists no accounts"; fi
