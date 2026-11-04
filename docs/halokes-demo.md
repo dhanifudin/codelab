@@ -15,7 +15,7 @@ The data comes from `DemoSeeder` in the app repo and is created, refreshed or re
    gh secret set HALOKES_DEMO_PASSWORD --repo dhanifudin/codelab
    printf 'HALOKES_DEMO_PASSWORD=%s\n' 'the-password' >> ~/.config/codelab/halokes.env   # mode 600 already
    ```
-3. Actions, **Seed demo (halokes)**, Run workflow, `action = seed`, `reset_passwords = true`.
+3. Actions, **Seed demo (halokes)**, Run workflow, `action = seed`, `reset_passwords = true`. Leave `include_owner` off unless you need the demo platform owner (below).
 4. Check it: `scripts/demo-smoke.sh` (logs in as every demo role, requests the pages, reports `N/N checks passed`).
 
 ## Operate
@@ -25,8 +25,10 @@ The data comes from `DemoSeeder` in the app repo and is created, refreshed or re
 | Refresh dates before a presentation | run **Seed demo** again (`seed`); announcements, attendance, journals and growth records move to the current date |
 | Change the demo password | update `HALOKES_DEMO_PASSWORD`, run **Seed demo** with `reset_passwords = true` |
 | Remove all demo data | **Seed demo** with `action = purge`: demo users, schools, children, rapor, files and demo registrations go; the yayasan, the owner, modules and the global semester/template stay |
+| Demo platform owner | **Seed demo** with `include_owner = true` (needs the secret `HALOKES_DEMO_OWNER_PASSWORD`); `purge` removes it again |
+| Show the demo owner on the central login page | set the repository variable `HALOKES_DEMO_LOGIN_HINTS=true` and deploy: https://halokes.com/login then offers a quick-fill button for `owner@yayasan.com` **if that account exists**. It fills the email only; the password is never on the page, give it to whoever needs it |
 | Show demo accounts on the login page | optional and public: set the repository variable `HALOKES_DEMO_LOGIN_HINTS=true` and the secret `HALOKES_DEMO_LOGIN_PASSWORD`, then deploy. The password is then visible to every visitor of `/y/ABS/login`. Off by default |
-| Check everything works | `scripts/demo-smoke.sh` (add `EXPECT_HINTS=1` when hints are on; `OWNER_EMAIL`/`OWNER_PASSWORD` to include the owner area) |
+| Check everything works | `scripts/demo-smoke.sh` (add `EXPECT_HINTS=1` when hints are on; `OWNER_EMAIL`/`OWNER_PASSWORD` to include your real owner area; `DEMO_OWNER_PASSWORD` to include the demo owner) |
 
 ## Accounts
 
@@ -43,7 +45,8 @@ All use the shared demo password. Sign in at https://abs.halokes.com (it opens t
 | Kepala sekolah PAUD | `kepsek.paud@demo.halokes.com` | PAUD |
 | Guru PAUD | `guru.paud@demo.halokes.com` | class KB Mawar |
 | Wali murid | `wali.01@demo.halokes.com` to `wali.31@...` | `wali.01`: Aditya Ramadhan (TK A1); `wali.22`: Alya Nugraha (KB Mawar); `wali.03`, `wali.06`, `wali.10` each have two children (TK A1 + TK B1) |
-| Owner (platform) | your own owner account, not part of the demo | https://halokes.com/login |
+| Owner (platform), on demand | `owner@yayasan.com` | created only when **Seed demo** runs with `include_owner = true`; its password is the secret `HALOKES_DEMO_OWNER_PASSWORD` (12+ characters, **not** the shared one); sign in at https://halokes.com/login |
+| Real owner | your own owner account, not part of the demo | https://halokes.com/login |
 
 Phone numbers are fake (`0800...`); login works with the email.
 
@@ -70,7 +73,7 @@ Phone numbers are fake (`0800...`); login works with the email.
 ## Tour by role
 
 1. **Public.** https://halokes.com (platform landing, fitur, FAQ, daftar yayasan). https://abs.halokes.com (yayasan landing with the two schools, then the login page). The PPDB form is at `/y/<token>/form-pendaftaran` (the token is in the portal URL); the kuota shown is the remaining seats.
-2. **Owner** (https://halokes.com/login, your account): yayasan list with ABS, registrations to approve or reject.
+2. **Owner** (https://halokes.com/login, your account, or the demo owner `owner@yayasan.com` when enabled): yayasan list with ABS, registrations to approve or reject.
 3. **Super admin:** schools (open each one's module toggles), users.
 4. **Admin TK:** dashboard counters, data siswa filters (class, no class, `menunggu`, alumni, search), accepting a pending registration, attendance entry and recap, growth chart, rapor template, fill and print a rapor, archive, class promotion, pengaturan, announcements, journal, materi approval.
 5. **Kepala sekolah TK:** approve or reject the Pending materi (the Rejected ones show the note).
@@ -87,6 +90,7 @@ Phone numbers are fake (`0800...`); login works with the email.
 
 ## Security notes
 
+- The demo platform owner reaches every tenant (create or switch into any yayasan, approve registrations, edit the landing) and the app has no read-only owner role. Keep it off except during a demo, use its own strong password, and run `purge` afterwards (it deletes only an account named "Owner Demo" with exactly that email).
 - One simple shared password protects every demo account, including a super admin of the ABS yayasan. Anyone who has the password can change that yayasan's data. Nothing above super admin exists in the demo and your owner password is separate.
 - Run `purge` when the demo is not needed. ABS is also a real customer name: demo rows are tagged and never mixed with untagged rows, but give a real school a different name instead of editing the demo ones.
 - The login page never lists accounts unless the hints are switched on.

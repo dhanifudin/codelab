@@ -4,7 +4,8 @@
 #   base-url  default https://abs.halokes.com     kode  default ABS
 # The password is read from ~/.config/codelab/halokes.env when the variable is not set. Nothing is printed
 # except page names and results. Optional: OWNER_EMAIL and OWNER_PASSWORD also check the owner area; set
-# EXPECT_HINTS=1 when DEMO_LOGIN_HINTS is on; SMOKE_DUMP=<dir> keeps the page bodies.
+# EXPECT_HINTS=1 when DEMO_LOGIN_HINTS is on; SMOKE_DUMP=<dir> keeps the page bodies. DEMO_OWNER_PASSWORD adds the
+# demo platform owner (owner@yayasan.com) section; without it the central login page must not offer one.
 set -uo pipefail
 
 BASE=${1:-https://abs.halokes.com}
@@ -149,6 +150,41 @@ if [ -n "${OWNER_EMAIL:-}" ] && [ -n "${OWNER_PASSWORD:-}" ]; then
     for p in /owner/yayasans /owner/yayasan-registrations; do
         fetch "${HALOKES_PLATFORM_URL:-https://halokes.com}$p"
         if [ "$STATUS" = 200 ] && grep -qE 'Aboe Bakar|Tunas|Cahaya' "$JAR.body"; then ok "owner $p"; else bad "owner $p -> HTTP $STATUS"; fi
+    done
+fi
+
+# Central login page: the demo owner is offered only with hints on and the account present, never with a password.
+PLATFORM=${HALOKES_PLATFORM_URL:-https://halokes.com}
+printf '== central login page (%s)\n' "$PLATFORM"
+: >"$JAR"; fetch "$PLATFORM/login"
+offered=$(grep -oE 'window.DEMO_OWNER = [^;]*;' "$JAR.body" | head -1)
+if [ -n "${DEMO_OWNER_PASSWORD:-}" ] && [ "${EXPECT_HINTS:-0}" = 1 ]; then
+    if grep -q 'owner@yayasan.com' <<<"$offered"; then ok "demo owner offered (hints on)"; else bad "demo owner not offered although hints are on: $offered"; fi
+else
+    if grep -q 'null' <<<"$offered"; then ok "no demo owner offered"; else bad "demo owner offered unexpectedly: $offered"; fi
+fi
+# A short or common password (for example the word "password") also occurs in normal page markup, so a text
+# search for it proves nothing; only search for passwords of at least 10 characters.
+leak=0; searched=0
+for pw in "$HALOKES_DEMO_PASSWORD" "${DEMO_OWNER_PASSWORD:-}"; do
+    [ "${#pw}" -ge 10 ] || continue
+    searched=1
+    grep -qF -- "$pw" "$JAR.body" && leak=1
+done
+if [ "$leak" = 1 ]; then bad "a demo password appears in the central login page"
+elif [ "$searched" = 1 ]; then ok "no demo password in the central login page"
+else ok "central login page password search skipped (passwords shorter than 10 characters)"; fi
+if [ -n "${DEMO_OWNER_PASSWORD:-}" ]; then
+    printf '== demo owner (owner@yayasan.com)\n'
+    : >"$JAR"
+    fetch "$PLATFORM/login"
+    csrf=$(grep -oE '<meta name="csrf-token" content="[^"]+"' "$JAR.body" | cut -d'"' -f4)
+    code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' --data-urlencode "_token=$csrf" \
+        --data-urlencode "email=owner@yayasan.com" --data-urlencode "password=$DEMO_OWNER_PASSWORD" "$PLATFORM/login")
+    case $code in 302*owner*) ok "login" ;; *) bad "login ($code)" ;; esac
+    for p in /owner/yayasans /owner/yayasan-registrations; do
+        fetch "$PLATFORM$p"
+        if [ "$STATUS" = 200 ] && grep -qiE 'Aboe Bakar|Tunas|Cahaya' "$JAR.body"; then ok "owner $p"; else bad "owner $p -> HTTP $STATUS"; fi
     done
 fi
 

@@ -15,6 +15,10 @@ on:
         description: Also reset the password of demo accounts that already exist to HALOKES_DEMO_PASSWORD
         type: boolean
         default: true
+      include_owner:
+        description: Also create the demo platform owner owner@yayasan.com (needs the secret HALOKES_DEMO_OWNER_PASSWORD, 12+ characters). Purge always removes it.
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-halokes
@@ -54,7 +58,9 @@ jobs:
         env:
           ACTION: ${{ inputs.action }}
           RESET: ${{ inputs.reset_passwords }}
+          INCLUDE_OWNER: ${{ inputs.include_owner }}
           DEMO_PASSWORD: ${{ secrets.HALOKES_DEMO_PASSWORD }}
+          OWNER_PASSWORD: ${{ secrets.HALOKES_DEMO_OWNER_PASSWORD }}
         run: |
           # Variables go to the remote script over stdin (never argv): HALOKES_DEMO_* only.
           if [ "$ACTION" = purge ]; then
@@ -63,6 +69,10 @@ jobs:
             [ -n "$DEMO_PASSWORD" ] || { echo "secret HALOKES_DEMO_PASSWORD is not set" >&2; exit 1; }
             lines="HALOKES_DEMO_PASSWORD=$DEMO_PASSWORD"
             [ "$RESET" = true ] && lines="$lines"$'\nHALOKES_DEMO_RESET=1'
+            if [ "$INCLUDE_OWNER" = true ]; then
+              [ -n "$OWNER_PASSWORD" ] || { echo "secret HALOKES_DEMO_OWNER_PASSWORD is not set" >&2; exit 1; }
+              lines="$lines"$'\nHALOKES_DEMO_OWNER=1'$'\n'"HALOKES_DEMO_OWNER_PASSWORD=$OWNER_PASSWORD"
+            fi
           fi
           scp -q scripts/remote/bootstrap.sh vps:/tmp/bootstrap-demo.sh
           printf '%s\n' "$lines" \
