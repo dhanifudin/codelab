@@ -11,13 +11,28 @@ The data comes from `DemoSeeder` in the app repo and is created, refreshed or re
 
 | Item | State |
 |---|---|
-| App release | `main` at `ba103145` in `dhanifudin/halokes`: PRs #6 (modules), #7 (`syncAll` fix), #8 and #10 (`DemoSeeder`), #9 (tenant login hints) and #11 (central login demo owner) are all deployed |
+| App release | `main` at `bea217d2` in `dhanifudin/halokes`: PRs #6 (modules), #7 (`syncAll` fix), #8 and #10 (`DemoSeeder`), #9 (tenant login hints), #11 (central login demo owner) and #12 (owner-only purge) are all deployed |
 | Demo data | seeded and complete: 2 schools, 3 classes, 41 children, 31 parents, 8 staff accounts, 12 announcements, 21 materi, 96 journal entries, 32 rapor, 8 archived rapor, 3 registrations |
-| Demo platform owner | **removed** on 2026-11-04 after the demo (only that account, by exact email, role and name; sessions cleared). Re-create it with **Seed demo** `include_owner = true`; remove it again with `action = purge-owner` once the app PR "DemoSeeder: owner-only purge" is deployed |
+| Demo platform owner | **removed** on 2026-11-04 after the demo (only that account, by exact email, role and name; sessions cleared). Re-create it with **Seed demo** `include_owner = true`; remove it again with `action = purge-owner` (deployed and verified in production, see *Owner-only purge* below) |
 | Quick-login hints | **on** (`HALOKES_DEMO_LOGIN_HINTS` is set in this repo). The tenant login page lists the five role accounts; the central login page offers the demo owner only while that account exists (not now). Both buttons fill the **email only**: `HALOKES_DEMO_LOGIN_PASSWORD` is not set, so no password is on any page |
 | Secrets in use | `HALOKES_DEMO_PASSWORD` (shared password of the tenant accounts), `HALOKES_DEMO_OWNER_PASSWORD` (demo owner, separate), `HALOKES_DEMO_LOGIN_HINTS` (flag; a repository variable works too) |
 | Last verification | `scripts/demo-smoke.sh` with `EXPECT_HINTS=1`, `OWNER_EMAIL`/`OWNER_PASSWORD` after the owner was removed: **44 of 44 checks passed** (with the demo owner present it was 47 of 47) (every role logs in and opens its pages; both owners reach the owner area; no password appears in the central login page) |
+| Owner-only purge | verified in production on 2026-11-04 (see below) |
 | Your real owner | `dhanifudin@gmail.com`, untouched and never shown |
+
+## Owner-only purge (verified in production)
+
+`purge` removes the demo owner together with all other demo data; `purge-owner` removes only the owner. It was exercised end to end on the live site (release `bea217d2`):
+
+| Step | Result |
+|---|---|
+| **Seed demo**, `include_owner = true` | `owner@yayasan.com` ("Owner Demo", role `owner`, no yayasan/school) created next to the real owner; https://halokes.com/login offered it (`window.DEMO_OWNER = {"email":"owner@yayasan.com"}`); 39 demo users unchanged |
+| Log in as the demo owner | redirected to `/owner/yayasans`; one session row created |
+| **Seed demo**, `action = purge-owner` | log line `demo owner removed: 1` |
+| After | account and its session gone; no sessions pointing at a deleted user; the real owner `dhanifudin@gmail.com` is the only owner; 39 demo users and 41 children unchanged; the login page back to `window.DEMO_OWNER = null`; the old session is redirected to the login page and the old demo owner password is refused |
+| Run again when no demo owner exists | `demo owner removed: 0`, nothing else changes (safe to repeat) |
+
+How it protects other data: the delete matches the exact email, role `owner` and name "Owner Demo", so an unrelated account with the same email is left alone (checked on a test database), and it needs no demo password. The workflow action is `purge-owner` in **Seed demo (halokes)**; `purge` stays the way to remove everything.
 
 ## Setup (once)
 
