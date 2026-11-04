@@ -45,7 +45,7 @@ The school's pages return 404 until its yayasan exists.
 
 - **Deploy:** push to the app's `main` (dispatch) or run **Deploy halokes** manually with a ref.
 - **Roll back:** `ssh codelab 'sudo -u deploy bash -s -- halokes' < scripts/remote/rollback.sh`. Migrations are not reverted.
-- **Demo data:** Actions, **Seed demo (halokes)**, action `seed` or `purge` ([halokes-demo.md](halokes-demo.md)).
+- **Demo data:** Actions, **Seed demo (halokes)**: `action` `seed` or `purge`, `include_owner` for the demo platform owner ([halokes-demo.md](halokes-demo.md), which also holds the current state and the accounts).
 - **Disk:** the VPS root disk is tight (about 85% used). Each release is a few hundred MB with `vendor/` and `public/build`; two are kept. Uploads grow `shared/storage`; plan R2 before it fills. monit logs a warning above 90% to `/var/log/monit.log`.
 
 ## Known app-side requirements

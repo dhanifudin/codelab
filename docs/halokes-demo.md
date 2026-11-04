@@ -7,9 +7,21 @@ A complete dataset for the yayasan with kode `ABS`, built to exercise every impl
 
 The data comes from `DemoSeeder` in the app repo and is created, refreshed or removed by the workflow **Seed demo (halokes)**. Everything it creates is tagged (emails end in `@demo.halokes.com`, NIKs start with `9999`, files live under `demo/abs/`), so it can be removed without touching real data.
 
+## Current state (seeded 2026-11-04)
+
+| Item | State |
+|---|---|
+| App release | `main` at `ba103145` in `dhanifudin/halokes`: PRs #6 (modules), #7 (`syncAll` fix), #8 and #10 (`DemoSeeder`), #9 (tenant login hints) and #11 (central login demo owner) are all deployed |
+| Demo data | seeded and complete: 2 schools, 3 classes, 41 children, 31 parents, 8 staff accounts, 12 announcements, 21 materi, 96 journal entries, 32 rapor, 8 archived rapor, 3 registrations |
+| Demo platform owner | `owner@yayasan.com` exists (seeded with `include_owner = true`); run `purge` to remove it |
+| Quick-login hints | **on** (`HALOKES_DEMO_LOGIN_HINTS` is set in this repo). The tenant login page lists the five role accounts and the central login page offers the demo owner. Both buttons fill the **email only**: `HALOKES_DEMO_LOGIN_PASSWORD` is not set, so no password is on any page |
+| Secrets in use | `HALOKES_DEMO_PASSWORD` (shared password of the tenant accounts), `HALOKES_DEMO_OWNER_PASSWORD` (demo owner, separate), `HALOKES_DEMO_LOGIN_HINTS` (flag; a repository variable works too) |
+| Last verification | `scripts/demo-smoke.sh` with `EXPECT_HINTS=1`, `DEMO_OWNER_PASSWORD`, `OWNER_EMAIL`/`OWNER_PASSWORD`: **47 of 47 checks passed** (every role logs in and opens its pages; both owners reach the owner area; no password appears in the central login page) |
+| Your real owner | `dhanifudin@gmail.com`, untouched and never shown |
+
 ## Setup (once)
 
-1. The app has the `DemoSeeder` and the related fixes deployed (halokes PRs "Seed the materi modules", "Stop Jurnal Harian from republishing...", "Add DemoSeeder", "Show login-page demo accounts only when enabled").
+1. The app has the `DemoSeeder` and the related fixes deployed (halokes PRs #6 to #11, see *Current state*). Check that `DemoSeeder.php` is really on `main` before running the workflow: a stacked PR merged into its base branch instead of `main` once left it out (see `troubleshooting.md`).
 2. Choose the shared password of the demo accounts (at least 8 characters) and store it **as a GitHub secret** in this repo, plus locally for the smoke test:
    ```bash
    gh secret set HALOKES_DEMO_PASSWORD --repo dhanifudin/codelab
@@ -26,9 +38,8 @@ The data comes from `DemoSeeder` in the app repo and is created, refreshed or re
 | Change the demo password | update `HALOKES_DEMO_PASSWORD`, run **Seed demo** with `reset_passwords = true` |
 | Remove all demo data | **Seed demo** with `action = purge`: demo users, schools, children, rapor, files and demo registrations go; the yayasan, the owner, modules and the global semester/template stay |
 | Demo platform owner | **Seed demo** with `include_owner = true` (needs the secret `HALOKES_DEMO_OWNER_PASSWORD`); `purge` removes it again |
-| Show the demo owner on the central login page | set the repository variable `HALOKES_DEMO_LOGIN_HINTS=true` and deploy: https://halokes.com/login then offers a quick-fill button for `owner@yayasan.com` **if that account exists**. It fills the email only; the password is never on the page, give it to whoever needs it |
-| Show demo accounts on the login page | optional and public: set the repository variable `HALOKES_DEMO_LOGIN_HINTS=true` and the secret `HALOKES_DEMO_LOGIN_PASSWORD`, then deploy. The password is then visible to every visitor of `/y/ABS/login`. Off by default |
-| Check everything works | `scripts/demo-smoke.sh` (add `EXPECT_HINTS=1` when hints are on; `OWNER_EMAIL`/`OWNER_PASSWORD` to include your real owner area; `DEMO_OWNER_PASSWORD` to include the demo owner) |
+| Quick-login hints (tenant login page and central login page) | one flag, `HALOKES_DEMO_LOGIN_HINTS=true` (repository variable or secret), then deploy. The tenant login page `/y/ABS/login` lists the five role accounts; https://halokes.com/login offers `owner@yayasan.com` **only if that account exists**. Both buttons fill the email only. To also fill a password set the secret `HALOKES_DEMO_LOGIN_PASSWORD`; that publishes it to every visitor, so it is left unset. Turn the hints off by removing the flag and redeploying |
+| Check everything works | `scripts/demo-smoke.sh`. Full run, as used for the final verification: `set -a; . ~/.config/codelab/halokes.env; set +a; DEMO_OWNER_PASSWORD="$HALOKES_DEMO_OWNER_PASSWORD" EXPECT_HINTS=1 OWNER_EMAIL="$HALOKES_ADMIN_EMAIL" OWNER_PASSWORD="$HALOKES_ADMIN_PASSWORD" scripts/demo-smoke.sh`. Without `EXPECT_HINTS=1` it fails when the hints are on. It pauses about a minute when the login throttle is hit |
 
 ## Accounts
 
@@ -87,10 +98,14 @@ Phone numbers are fake (`0800...`); login works with the email.
 - Re-seeding keeps what a person uploaded: logos and photos replaced through the UI are not overwritten; text that was edited stays.
 - Not implemented in the app, so not in the demo: media kegiatan, notifications, audit log screens, password-reset mail, PDF generation (printing uses the browser).
 - The login is throttled to five attempts per minute per address; the smoke script waits when it is throttled.
+- Cloudflare rewrites email addresses in HTML as "[email protected]" (visible in lists such as the super admin's user list, harmless). Tests therefore look for page elements, not for email text.
+- The yayasan landing headline shows the template's default text; the seeded hero keys are not used by the `ocean` template. Edit it in the super admin's landing settings if you want other wording.
+- School hosts: nginx sends only a page view of `/login` to the portal. Logging in must POST to `/login` on the same host, so test logins through the real host, not against the app directly (see `troubleshooting.md`).
+- Dates age: announcements, attendance and journal dates are relative to the day of the last seed. Run **Seed demo** again before a presentation.
 
 ## Security notes
 
 - The demo platform owner reaches every tenant (create or switch into any yayasan, approve registrations, edit the landing) and the app has no read-only owner role. Keep it off except during a demo, use its own strong password, and run `purge` afterwards (it deletes only an account named "Owner Demo" with exactly that email).
 - One simple shared password protects every demo account, including a super admin of the ABS yayasan. Anyone who has the password can change that yayasan's data. Nothing above super admin exists in the demo and your owner password is separate.
 - Run `purge` when the demo is not needed. ABS is also a real customer name: demo rows are tagged and never mixed with untagged rows, but give a real school a different name instead of editing the demo ones.
-- The login page never lists accounts unless the hints are switched on.
+- The login pages list accounts only while the hints flag is set; at the moment it is set, and the buttons fill the email only. The passwords are handed out by whoever runs the demo.
