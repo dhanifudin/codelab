@@ -6,7 +6,7 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 |---|---|---|
 | `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | live behind Cloudflare; `abs.halokes.com` school host with a full demo dataset and demo accounts (`docs/halokes-demo.md`) |
 | `license.dhanifudin.com` | `dhanifudin/license.dhanifudin.com` (Go, private) | `KIND=go` binary site; see `docs/license.md` |
-| `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | first deploy in progress; HTTPS follows once Polinema IT points DNS here (`docs/spi-cutover-dns-tls.md`) |
+| `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | live on HTTP (PHP 8.4, own pool); HTTPS follows once Polinema IT points DNS here (`docs/spi-cutover-dns-tls.md`) |
 
 ## Layout
 
@@ -42,6 +42,7 @@ Adding a site means adding `sites/<site>/` with the same files. `KIND=go` sites 
 5. Add the dispatch token and workflow to the app repo so every push to its `main` deploys (`sites/<site>/app-dispatch.yml`; the wizard prints the token steps).
 
 The full procedure with commands, ordering rules and checks is in [docs/runbook.md](docs/runbook.md).
+The spi data load (SIMKEU risks, SPI staff) is described in [docs/spi-data-load.md](docs/spi-data-load.md).
 
 ## Deploy model
 
