@@ -31,6 +31,16 @@ Found by a pre-deploy review; verified on PHP 8.3 and 8.4 + MariaDB 10.11 (produ
 | Admin-created users could not reach `/dashboard` (`email_verified_at` not fillable) | set explicitly |
 | Debug scripts, `coverage.xml`, `public/coverage-report/`, `pelaporan` SQLite, `.DS_Store` tracked in git | removed from the tree and ignored (still in git history; the repo is private) |
 
+Added after go-live (2026-11-12, Manajemen User):
+
+| Issue | Fix |
+|---|---|
+| The user list showed no email and its search ignored it; the login says email but the field read "Username"; two accounts could share an email | Email and Status columns, search by name, NIP or email, label `Email / Username`; unique index on `users.email` (the migration refuses with a list of duplicates instead of failing blindly) |
+| No way to disable an account: the only options were Hapus, which also deletes the user's comments, MR answers and letters, and Tolak, which deleted any account | `users.is_active`: Nonaktifkan / Aktifkan in the list. A disabled user cannot log in and an open session ends on the next request (`EnsureUserIsActive`); disabled users are hidden from auditor, PIC and member dropdowns; nobody can disable themselves, and the last active Super Admin cannot be disabled, deleted or demoted. Hapus is Super Admin only; Tolak only works on a registration that was never approved. `spi:import-staff` never re-enables a disabled account |
+| The user pages overflowed on phones (page 771px wide at 375px), and on every page the sidebar stayed open over the content because `public/js/scripts.js` threw on `Chart.defaults.global` (the layout loads an unpinned Chart.js from a CDN) | compact rows below 992px and columns above; script guarded; viewport allows zoom; pagination wraps. Checked in headless Chromium at 375, 768, 1024, 1280 and 1440px |
+
+Deploy note: the email index migration stops if duplicate emails exist; fix them first (`select lower(email), count(*) from users group by 1 having count(*) > 1`).
+
 ## Known and left for v2
 
 - No per-record/unit checks: any logged-in user with a role that can open a post, peta or risk can read or act on others' records (IDOR). Workflow actions on posts and peta still only check the role.
