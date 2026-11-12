@@ -68,9 +68,18 @@ TENANT_HOSTS=${TENANT_HOSTS% }
 CHANGED=0
 vhost_file="/etc/nginx/sites-available/$DOMAIN.conf"
 snippet_file="/etc/nginx/snippets/$SITE-app.conf"
+limits_file="/etc/nginx/conf.d/$SITE-limits.conf"
 # Remember what is live so a bad render can be rolled back instead of taking the site offline.
 [ ! -f "$vhost_file" ] || cp -p "$vhost_file" "$tmp/vhost.prev"
 [ ! -f "$snippet_file" ] || cp -p "$snippet_file" "$tmp/snippet.prev"
+[ ! -f "$limits_file" ] || cp -p "$limits_file" "$tmp/limits.prev"
+
+# Optional http-level settings (rate-limit zones). conf.d/*.conf is included in the http block by nginx.conf,
+# so this must be in place before the snippet below that refers to the zone.
+if [ -f "$SITE_DIR/nginx-limits.conf" ]; then
+    render_template "$SITE_DIR/nginx-limits.conf" "$tmp/limits.conf"
+    install_if_changed "$tmp/limits.conf" "$limits_file" 644
+fi
 
 # Optional shared locations, included by the http and https variants.
 if [ -f "$SITE_DIR/app.conf" ]; then
@@ -95,6 +104,9 @@ fi
 # so other sites, and this one if it was already live, keep working.
 if ! nginx -t 2>"$tmp/nginx-test"; then
     cat "$tmp/nginx-test" >&2
+    # The http-level file goes back too (or away, if this run created it), so the previous snippet and vhost
+    # are never left referring to a zone that no longer exists, and nothing new is left behind.
+    if [ -f "$tmp/limits.prev" ]; then cp -p "$tmp/limits.prev" "$limits_file"; else rm -f "$limits_file"; fi
     if [ -f "$tmp/vhost.prev" ]; then
         cp -p "$tmp/vhost.prev" "$vhost_file"
         [ ! -f "$tmp/snippet.prev" ] || cp -p "$tmp/snippet.prev" "$snippet_file"

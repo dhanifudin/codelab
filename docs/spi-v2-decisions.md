@@ -1,6 +1,6 @@
 # spi v2 (rewrite): decisions so far
 
-Context: the Laravel 9 app is end-of-life and needs structural security work. It is deployed as a stopgap with the mitigations in `spi-app-issues.md`. The rewrite is a separate project; this file only records what was decided so far.
+Context: the Laravel 9 app is end-of-life and needs structural security work. It is deployed as a stopgap with the mitigations recorded in the private app repository. The rewrite is a separate project; this file only records what was decided so far.
 
 | Topic | Decision |
 |---|---|

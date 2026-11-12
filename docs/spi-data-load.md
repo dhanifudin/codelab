@@ -31,18 +31,7 @@ Not loaded: three `Institusi` fund lines with no risk assessment (`99-2026-6` Da
 
 ## Open items
 
-Operator steps:
-
-- Admins publish risks per unit on **Manajemen Risiko > Data** (year, unit, tick, confirm) before auditees and auditors can see them. Check from the server: `select count(*) from petas where tampil_manajemen_risiko = 1`.
-- Auditee accounts are created by an admin under **Manajemen User** (level Auditee, the unit's exact name). The files only list SPI staff, so none exist yet. An Auditee sees only published risks of their own unit.
-- Ask all 10 staff to change the shared password on the profile page at first login, the two Super Admins first.
-- The Drive folder with the source files is readable by anyone with the link; restrict it or remove it.
-- Mail is on the `log` driver; set `SPI_MAIL_HOST` (and the other `SPI_MAIL_*`, `SPI_MAIL_SCAN_AUDIT_TO`) on this repo and redeploy to send mail.
-
-Known gaps, decided on 2026-11-12 and not forgotten:
-
-- **No backups.** The server has no scheduled database or upload backups (cron holds only certbot, php, sysstat and logrotate). The spi database is about 3 MB, the disk is at 87% (4.4 GB free) and uploads will grow. When wanted: a nightly `mysqldump` plus the shared upload folders into a root-only folder with 14 days of history, and an off-site copy.
-- **One shared initial password on all 10 accounts**, including both Super Admins. The app cannot force a change.
+Operator steps and known gaps for this site are tracked in the private app repository (`docs/spi-open-items.md`), not in this public repo.
 
 ## Known limits of the app's own importer (not used here)
 
