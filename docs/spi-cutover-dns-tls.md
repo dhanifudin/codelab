@@ -1,11 +1,13 @@
 # spi.polinema.ac.id: first deploy, DNS and HTTPS
 
+**Status: done.** First deploy and data load on 2026-11-11 (`docs/spi-data-load.md`); Polinema IT pointed the A record here and HTTPS went live on 2026-11-12 (certificate valid until 2027-02-09, renewal dry-run passed, `SPI_APP_URL` set, push-to-deploy tested). The sections below are the procedure, kept for rebuilding the site or for another host.
+
 The DNS zone `polinema.ac.id` is managed by Polinema IT, so the certificate is issued over HTTP-01 (`TLS=letsencrypt-webroot` in `sites/spi/site.conf`): IT only has to point the A record at this server. Provisioning checks DNS itself and keeps the site on plain HTTP until it does.
 
 ## 1. One-time setup
 
 1. **Read access to the private app repo.** `APP_READ_TOKEN` must be able to read `dhanifudin/spi.polinema.ac.id`: GitHub, Settings, Developer settings, Fine-grained tokens, open the token, Repository access, add the repo (see `docs/tokens.md`).
-2. `scripts/setup-github.sh spi` in a normal terminal. It generates the app key, DB password and admin password into `~/.config/codelab/spi.env` and sets the `SPI_*` secrets.
+2. `scripts/setup-github.sh spi` in a normal terminal. It generates the app key, DB password and admin password into `~/.config/codelab/spi.env` and sets the `SPI_*` secrets. **Only on the machine that already holds `~/.config/codelab/deploy_key`:** the wizard also rewrites the shared `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS` and `deploy.pub`, which breaks halokes deploys when the key is regenerated elsewhere. On any other machine, generate the values yourself and run `gh secret set` for `SPI_APP_KEY`, `SPI_DB_PASSWORD`, `SPI_ADMIN_NAME`, `SPI_ADMIN_EMAIL`, `SPI_ADMIN_USERNAME` and `SPI_ADMIN_PASSWORD` (the bootstrap needs a password of 12+ characters); that is how spi was set up.
 3. `scripts/provision-remote.sh codelab spi` (run it twice; the second run must report no changes). Then run **Deploy spi** and **Bootstrap spi data** from the Actions tab.
 
 User-data folders (`hasil_*`, `koreksi_*`, `surat_tugas`, `sertifikat`, `tanda_tangans`, ...) start empty on purpose: the sample files committed in the app repo are neither uploaded nor copied into production. Only the document templates (`template_*`) and the `storage` skeleton are seeded.
@@ -16,7 +18,7 @@ Add `194.127.193.198 spi.polinema.ac.id` to `/etc/hosts` on your machine, open `
 
 ## 3. Ask Polinema IT
 
-Today the record points at `103.170.197.231`, which does not answer. Message to send:
+Before the change the record pointed at `103.170.197.231`, which did not answer. Message to send:
 
 > Please change the DNS record for `spi.polinema.ac.id` to an `A` record with value `194.127.193.198` (the Cloudflare orange cloud off, "DNS only", if the zone is proxied). Ports 80 and 443 on that address are open. We use Let's Encrypt for HTTPS, which validates over port 80, so the record must stay pointed at this address.
 
@@ -24,13 +26,13 @@ Today the record points at `103.170.197.231`, which does not answer. Message to 
 
 1. `dig +short spi.polinema.ac.id @1.1.1.1` returns `194.127.193.198`.
 2. `scripts/provision-remote.sh codelab spi`. The log shows `certificate issued for spi.polinema.ac.id` and the vhost switches to HTTPS (HTTP redirects to HTTPS, HSTS 30 days). While DNS is wrong it logs `pending:` instead and nothing breaks.
-3. If `pending: vhost for ... not installed yet` appears, run provisioning once more.
+3. If `pending: vhost for ... not installed yet` appears, run provisioning once more. The same applies when the log shows `WARN: certbot failed ... continuing over HTTP` and `/var/log/letsencrypt/letsencrypt.log` says the challenge got a 404: certbot runs before the vhost step, so on a host that still has the older vhost the first run installs the vhost that serves `/.well-known/acme-challenge/` and the second run issues the certificate (this happened on 2026-11-12).
 4. `gh variable set SPI_APP_URL --body https://spi.polinema.ac.id --repo dhanifudin/codelab`, then run **Deploy spi** so `APP_URL` and secure cookies apply.
 5. Proxied record (orange cloud) instead of DNS only: set `TLS_DNS_CHECK=skip` in `site.conf` (the resolved address is then a Cloudflare one) and use SSL mode Full (strict) on their side.
 
 ## 5. Auto-deploy
 
-The app repo already contains `.github/workflows/notify-codelab.yml`. Create `CODELAB_DISPATCH_TOKEN` (`docs/tokens.md`, section 4) and set it with `gh secret set CODELAB_DISPATCH_TOKEN --repo dhanifudin/spi.polinema.ac.id`.
+The app repo already contains `.github/workflows/notify-codelab.yml`. Create `CODELAB_DISPATCH_TOKEN` (`docs/tokens.md`, section 4) and set it with `gh secret set CODELAB_DISPATCH_TOKEN --repo dhanifudin/spi.polinema.ac.id`. Check it by re-running the latest **Notify codelab** run: a **Deploy spi** run with trigger `repository_dispatch` must appear here. The error `Resource not accessible by personal access token` means the token does not list `dhanifudin/codelab` under Repository access, or Contents is not Read and write. The token expires on the date chosen when it was created; after that pushes stop deploying until it is replaced (`gh workflow run deploy-spi.yml` still works).
 
 ## If the certificate fails
 
