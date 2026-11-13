@@ -19,3 +19,21 @@ only after `nginx -t` passes.
 
 Gotcha (fail2ban): the Debian default `backend = systemd` makes a jail ignore `logpath`. Every jail that reads a log file
 needs `backend = auto` (`fail2ban-client get <jail> logpath` must list the files, not "No file is currently monitored").
+
+## Second round (2026-11-13)
+
+| Area | Setting | Verify |
+|---|---|---|
+| Logs | journald capped (`/etc/systemd/journald.conf.d/50-limits.conf`: 500M, keep 1G free, 1 month); `/etc/logrotate.d/rsyslog` rotates weekly or at 100M and has `su root syslog` (without it logrotate skipped syslog because `/var/log` is group-writable by `syslog`) | `journalctl --disk-usage`; `ls -la /var/log/syslog*` |
+| Kernel | `/etc/sysctl.d/99-hardening.conf`: no ICMP redirects sent, martian logging, `fs.suid_dumpable=0`, unprivileged BPF off (`ip_forward` stays 1 for Docker); core dumps off (`limits.d/99-no-core.conf`) | `sysctl -n fs.suid_dumpable` |
+| SSH | keepalive 300s x2, `LogLevel VERBOSE` (in `00-hardening.conf`) | `sshd -T` |
+| MariaDB | `local_infile=0` (`mariadb.conf.d/99-hardening.cnf`) | `SHOW VARIABLES LIKE 'local_infile'` |
+| Updates | `52unattended-reboot`: automatic reboot at 04:30 (server time) only when an update needs it | `/var/run/reboot-required` does not linger |
+| PHP pools | One pool and one system user per non-codelab Laravel site (`app-<site>`, socket `/run/php/php<ver>-fpm-app-<site>.sock`, `open_basedir` = site dir + its state dir, exec-type functions disabled). Code `el:app-<site>` 750/640, `public/` 755/644, `.env` 640, `storage/` and `bootstrap/cache/` owned by the pool user with setgid dirs; `el` is in each group. Old modes and vhost are kept in `/root/pool-split/<site>.*` for rollback | `ps -eo user,args` shows `pool app-<site>`; another pool user cannot read the `.env` |
+| nginx | HSTS on the https vhosts that serve working apps | `curl -I` |
+| Monitoring | monit checks (restart on failure) for nginx, php-fpm 8.4 and 8.5, mariadb, redis, fail2ban, sshd, docker, plus disk; results in `/var/log/monit.log`; `monit summary` works through `/run/monit.sock` | `sudo monit summary` |
+| Audit | auditd with watches on identity files, sudoers, ssh config and keys, nginx/php/fail2ban/ufw config, cron, systemd units, WordPress `mu-plugins` and `wp-config.php` | `/var/log/audit/audit.log` |
+| Cleanup | removed snapd, apport, ftp, telnet; ModemManager disabled; host `postgres` user has no shell | `systemctl --failed` is empty |
+
+Lynis hardening index after this round: 74 (no warnings).
+
