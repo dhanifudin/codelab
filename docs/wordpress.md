@@ -32,3 +32,11 @@ sites were rebuilt.
 - Cleaning up spam attachments: `wp post delete --force` on an attachment also deletes its file on disk. Copy the files aside
   first (or delete the rows with SQL and keep the files), and compare the image URLs used by the remaining content with the
   files on disk before and after.
+
+## Notes on rebuilt sites
+- ulfillah.com runs Olsen Light 1.8.0 on purpose (the old site ran 1.7.1, identical to the official release). To keep the
+  old look: the "Paragraphs in Arial" rule that the closed Easy Google Fonts plugin applied lives in Customize > Additional CSS,
+  and `archive_title` is set to 0 (`wp theme mod set archive_title 0`). Easy Google Fonts was removed from wordpress.org
+  (2026-09-09) and is not reinstalled.
+- Jetpack is installed but must be reconnected by the site owner from wp-admin; until then its modules, including the image
+  CDN (Photon), are off and the log shows harmless cron schedule messages.
