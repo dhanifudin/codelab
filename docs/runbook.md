@@ -179,10 +179,12 @@ Releases kept per site: `KEEP_RELEASES` in `site.conf` (older ones are deleted a
 
 ## 6. Worked examples
 
+spi stays on PHP 8.4: its `phpoffice/phpspreadsheet` 1.30.x (required by `maatwebsite/excel` 3.1) declares `php <8.5.0`, so `composer install` refuses PHP 8.5 until the Excel stack is upgraded (Laravel Excel 4 / PhpSpreadsheet 2+, which needs code changes in the imports and exports). Checked 2026-11-13.
+
 | | halokes | spi | license |
 |---|---|---|---|
 | App | Laravel 12 + Vite | Laravel 9 | Go service (`KIND=go`) |
-| PHP | 8.4 (shared master) | 8.4 | none |
+| PHP | 8.5 (shared master) | 8.4 (see note) | none |
 | DNS | Cloudflare, we control | Polinema IT | Cloudflare, we control |
 | TLS | `letsencrypt-cloudflare`, wildcard | `letsencrypt-webroot` | `letsencrypt-cloudflare` |
 | Build | composer + `npm run build` | composer only (assets committed) | Go binary |

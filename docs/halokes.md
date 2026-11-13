@@ -6,7 +6,7 @@ App: `dhanifudin/halokes` (private), Laravel 12, Blade plus a React landing page
 |---|---|
 | Server | ssh alias `codelab` (194.127.193.198), user `deploy` owns the release tree |
 | Web root | `/var/www/halokes.com/current/public` (symlink to `releases/<sha>`) |
-| PHP | 8.4, dedicated pool `halokes`, socket `/run/php/php8.4-fpm-halokes.sock` (shares the fpm master with the other sites) |
+| PHP | 8.5, dedicated pool `halokes`, socket `/run/php/php8.5-fpm-halokes.sock` (shares the fpm master with the other sites) |
 | Database | MariaDB `halokes`, user `halokes`@localhost |
 | Persistent data | `shared/storage` (uploads, logs, sessions are in the DB) |
 | Health check | `GET /up` |
