@@ -40,3 +40,5 @@ sites were rebuilt.
   (2026-09-09) and is not reinstalled.
 - Jetpack is installed but must be reconnected by the site owner from wp-admin; until then its modules, including the image
   CDN (Photon), are off and the log shows harmless cron schedule messages.
+- Logins: failed attempts are banned by the  fail2ban jail. Guests get 403 on  and 404
+  on  (nginx rules in the vhost template; the block editor keeps working for logged-in users).

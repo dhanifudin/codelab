@@ -30,6 +30,16 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
+    # Usernames are not shown to guests: the REST users list and ?author=N enumeration. Anyone with a login cookie
+    # (the block editor, "users/me") is unaffected.
+    set $hide_users "";
+    if ($http_cookie !~* "wordpress_logged_in_") { set $hide_users "G"; }
+    if ($uri ~* "^/wp-json/wp/v2/users") { set $hide_users "${hide_users}R"; }
+    if ($args ~* "rest_route=(%2F|/)wp(%2F|/)v2(%2F|/)users") { set $hide_users "${hide_users}R"; }
+    if ($args ~* "(^|&)author=[0-9]") { set $hide_users "${hide_users}A"; }
+    if ($hide_users ~ "^GR") { return 403; }
+    if ($hide_users ~ "^GA") { return 404; }
+
 
     # Never serve: dotfiles, dumps and archives, logs, backup copies, config and docs.
     location ~ /\.(?!well-known) { deny all; }
