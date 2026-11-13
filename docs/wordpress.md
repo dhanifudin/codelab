@@ -40,5 +40,7 @@ sites were rebuilt.
   (2026-09-09) and is not reinstalled.
 - Jetpack is installed but must be reconnected by the site owner from wp-admin; until then its modules, including the image
   CDN (Photon), are off and the log shows harmless cron schedule messages.
-- Logins: failed attempts are banned by the  fail2ban jail. Guests get 403 on  and 404
-  on  (nginx rules in the vhost template; the block editor keeps working for logged-in users).
+- Logins: failed attempts are banned by the `wordpress-login` fail2ban jail. Guests get 403 on `/wp-json/wp/v2/users` and 404
+  on `?author=N` (nginx rules in the vhost template; the block editor keeps working for logged-in users). The rule only checks
+  that a `wordpress_logged_in_` cookie exists, so it stops scanners but not someone who sends a made-up cookie; a PHP-side
+  check (REST authentication filter) is the strict alternative.

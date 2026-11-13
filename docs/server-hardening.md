@@ -17,5 +17,5 @@ Rules of thumb when adding a site: give it its own php-fpm pool and unix user (a
 in `shared/` with mode 600 owned by the deploy user, never put database dumps or archives in a web root, and add the vhost
 only after `nginx -t` passes.
 
-Gotcha (fail2ban): the Debian default  makes a jail ignore . Every jail that reads a log file
-needs  ( must list the files, not "No file is currently monitored").
+Gotcha (fail2ban): the Debian default `backend = systemd` makes a jail ignore `logpath`. Every jail that reads a log file
+needs `backend = auto` (`fail2ban-client get <jail> logpath` must list the files, not "No file is currently monitored").
