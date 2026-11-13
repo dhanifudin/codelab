@@ -67,6 +67,6 @@ server {
         try_files $uri =404;
     }
 
-    location = /favicon.ico { log_not_found off; access_log off; }
-    location = /robots.txt  { log_not_found off; access_log off; }
+    location = /favicon.ico { try_files $uri /index.php?$args; log_not_found off; access_log off; }
+    location = /robots.txt  { try_files $uri /index.php?$args; log_not_found off; access_log off; }
 }

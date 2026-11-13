@@ -29,3 +29,6 @@ sites were rebuilt.
 - Never put SQL dumps or archives under a web root. Take dumps with `mysqldump` to a private directory.
 - After any incident: compare `wp-content` with a clean install (`mu-plugins` must normally be absent), list administrators
   (`wp user list --role=administrator`), check `wp cron event list` and the options table for unknown entries.
+- Cleaning up spam attachments: `wp post delete --force` on an attachment also deletes its file on disk. Copy the files aside
+  first (or delete the rows with SQL and keep the files), and compare the image URLs used by the remaining content with the
+  files on disk before and after.
