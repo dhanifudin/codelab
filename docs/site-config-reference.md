@@ -60,11 +60,24 @@ Naming: `<SITE>_NAME`, upper case. `render-env.sh` and `_deploy.yml` pass only t
 | `<SITE>_ADMIN_NAME`, `_EMAIL`, `_PASSWORD` (spi also `_USERNAME`) | secret | `setup-github.sh` | first admin at bootstrap |
 | `<SITE>_MAIL_*`, `<SITE>_NOCAPTCHA_*`, ... | secret | you, when needed | optional app settings |
 | `<SITE>_APP_URL` | variable | you, after HTTPS | `APP_URL` and secure cookies |
+| `SPI_FILES_KEY_ID`, `SPI_FILES_SECRET`, `SPI_FILES_BUCKET`, `SPI_FILES_ENDPOINT` | secret | you ([sites/spi file storage](#spi-file-storage-cloudflare-r2)) | spi uploads on Cloudflare R2 |
+| `SPI_FILES_DISK` | variable | you | where spi keeps uploads: `private` (default, the VPS) or `r2` |
 | `CODELAB_DISPATCH_TOKEN` | secret in the **app** repo | you | app repo triggers the deploy |
 | `CF_API_TOKEN` | local only (`cloudflare.env`) | you | `cf-dns.sh` |
 | `CF_CERTBOT_TOKEN` | local only; installed root-only on the VPS | you | DNS-01 challenges |
 
 Local store `~/.config/codelab/`: `<site>.env` (generated secrets, mode 600), `cloudflare.env`, `deploy_key` and `deploy_key.pub`. Override the directory with `CODELAB_ENV_DIR`.
+
+## spi file storage (Cloudflare R2)
+
+Create a bucket with public access off, and an R2 API token with **Object Read & Write** on that bucket only. Set the four secrets one at a time with `gh secret set <name> -R <this repo>` (one line each; the endpoint is `https://<account-id>.r2.cloudflarestorage.com`). Never commit the values.
+
+To switch, on the VPS as the deploy user, in the current release:
+
+1. With `SPI_FILES_DISK=private` deployed: `artisan files:probe r2`, `artisan files:check-references private`, `artisan files:copy private r2 --dry-run`, then without `--dry-run`, then `artisan files:check-references r2`.
+2. Set the variable `SPI_FILES_DISK=r2`, deploy, and run `files:copy private r2` once more for anything uploaded in between.
+
+To go back: set `private`, deploy, and run `artisan files:copy r2 private`. The copy never overwrites or deletes; local files stay. While uploads are on R2, a backup of `shared/storage` does not contain new files.
 
 ## `shared-paths.txt`
 
