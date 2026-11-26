@@ -15,7 +15,7 @@ source "$HERE/lib.sh"
 source "$SITE_DIR/site.conf"
 
 require_root
-: "${SERVER_NAMES:=$DOMAIN}" "${CERT_NAMES:=$SERVER_NAMES}" "${TENANTS:=}" "${TLS:=none}" "${DISABLE_STOCK_POOL:=0}" "${PHP_EXTENSIONS:=fpm cli common mysql zip mbstring xml curl intl}" "${KIND:=laravel}" "${SERVICE:=}" "${APP_PORT:=}"
+: "${SERVER_NAMES:=$DOMAIN}" "${CERT_NAMES:=$SERVER_NAMES}" "${TENANTS:=}" "${TLS:=none}" "${DISABLE_STOCK_POOL:=0}" "${PHP_EXTENSIONS:=fpm cli common mysql zip mbstring xml curl intl}" "${KIND:=laravel}" "${SERVICE:=}" "${APP_PORT:=}" "${BACKUP:=0}" "${BACKUP_KEEP_DAYS:=30}"
 export SITE_DIR HERE ROOT_DIR
 # Set by 25-tls.sh when a certificate covering the site exists; 30-site.sh picks the HTTPS vhost from it.
 TLS_READY=0

@@ -6,6 +6,7 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 |---|---|---|
 | `halokes.com` | `dhanifudin/halokes` (Laravel 12, private) | live behind Cloudflare; `abs.halokes.com` school host with a full demo dataset and demo accounts (`docs/halokes-demo.md`) |
 | `license.dhanifudin.com` | `dhanifudin/license.dhanifudin.com` (Go, private) | `KIND=go` binary site; see `docs/license.md` |
+| `rw05tanjungrejo.or.id` | `dhanifudin/rw05tanjungrejo` (Laravel 9, private) | configured, not provisioned yet; see `docs/sirw.md` |
 | `spi.polinema.ac.id` | [dhanifudin/spi.polinema.ac.id](https://github.com/dhanifudin/spi.polinema.ac.id) (Laravel 9) | live on HTTP (PHP 8.4, own pool); HTTPS follows once Polinema IT points DNS here (`docs/spi-cutover-dns-tls.md`) |
 
 ## Layout
@@ -13,7 +14,7 @@ Ops repository for the sites hosted on the "codelab" VPS (ssh alias `codelab`, U
 ```
 sites/<site>/        per-site config: site.conf, nginx.conf, php-fpm-pool.conf, env.template, dns.records, ...
 deploy.pub           public half of the repo-wide deploy key
-provision/           idempotent root scripts run on the VPS (swap, PHP, TLS, Cloudflare IPs, vhost + pool, sudoers, DB, monit)
+provision/           idempotent root scripts run on the VPS (swap, PHP, TLS, Cloudflare IPs, vhost + pool, sudoers, DB, backup, monit)
 scripts/             local helpers: setup-github.sh, provision-remote.sh, render-env.sh, cf-dns.sh, demo-smoke.sh
 scripts/remote/      run on the VPS by CI: activate.sh, rollback.sh, bootstrap.sh, bootstrap-spi.sh
 .github/workflows/   _deploy.yml (reusable), deploy-<site>.yml, bootstrap.yml, seed-demo.yml, spi-bootstrap-db.yml

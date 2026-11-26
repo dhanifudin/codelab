@@ -5,7 +5,7 @@ This is the end-to-end procedure used for `halokes.com`, `spi.polinema.ac.id` an
 - [site-config-reference.md](site-config-reference.md): every file and `site.conf` key
 - [tokens.md](tokens.md): where each token comes from (click paths and permissions)
 - [troubleshooting.md](troubleshooting.md): symptoms, causes, fixes
-- Per-site notes: [halokes.md](halokes.md), [spi-cutover-dns-tls.md](spi-cutover-dns-tls.md), [license.md](license.md), [cloudflare-migration.md](cloudflare-migration.md)
+- Per-site notes: [sirw.md](sirw.md), [halokes.md](halokes.md), [spi-cutover-dns-tls.md](spi-cutover-dns-tls.md), [license.md](license.md), [cloudflare-migration.md](cloudflare-migration.md)
 
 ## 1. How it works
 
@@ -101,7 +101,7 @@ Verify the fingerprint yourself first: `ssh codelab 'ssh-keygen -lf /etc/ssh/ssh
 scripts/provision-remote.sh codelab <site>      # run it twice
 ```
 
-It syncs the repo to `~/codelab` on the VPS and runs `provision/provision.sh <site>` with sudo. Secrets (database password, certbot token) travel over ssh stdin, never in arguments. Steps, in order: `10-swap`, `20-php`, `25-tls`, `26-cloudflare-ips`, `30-site` (directories, fpm pool, nginx vhost, sudoers, deploy key), `35-keys` (Go sites), `40-db`, `50-monitor`. Every step logs `unchanged:`, `changed:`, `skipped:` or `pending:`. **The second run must contain no `changed:` lines**; if it does, something is not idempotent.
+It syncs the repo to `~/codelab` on the VPS and runs `provision/provision.sh <site>` with sudo. Secrets (database password, certbot token) travel over ssh stdin, never in arguments. Steps, in order: `10-swap`, `20-php`, `25-tls`, `26-cloudflare-ips`, `30-site` (directories, fpm pool, nginx vhost, sudoers, deploy key), `35-keys` (Go sites), `40-db`, `45-backup` (sites with `BACKUP=1`), `50-monitor`. Every step logs `unchanged:`, `changed:`, `skipped:` or `pending:`. **The second run must contain no `changed:` lines**; if it does, something is not idempotent.
 
 Normal `pending:` lines: `DNS does not point at this server yet` (foreign DNS before the record changed) and `vhost ... not installed yet` (first run only; the certificate is requested on the next run).
 

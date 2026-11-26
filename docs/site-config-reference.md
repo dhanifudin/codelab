@@ -119,3 +119,12 @@ At each deploy `activate.sh` replaces the release's copy of every listed path wi
 ## What provisioning installs on the VPS
 
 `/swapfile` (2 GB), `php<ver>-*` packages, `/etc/php/<ver>/fpm/pool.d/<pool>.conf`, `/etc/nginx/sites-available/<domain>.conf` (+ symlink, + snippets), `/etc/letsencrypt/{cloudflare/<site>.ini,live/<domain>}`, `/etc/codelab/<site>.{conf,shared-paths}`, `/etc/systemd/system/<site>-<job>.{service,timer}` for scheduled jobs, `/etc/sudoers.d/codelab-<site>` (the deploy user may only reload that fpm or restart that unit), the deploy key in `~deploy/.ssh/authorized_keys` (no pty, no forwarding), `/etc/logrotate.d/php<ver>-fpm-<pool>`, a monit rule for root-disk usage, the database and user, and `/var/www/<domain>/{releases,shared}`.
+
+## Backup (`BACKUP=1`)
+
+| Key | Meaning |
+|---|---|
+| `BACKUP` | `1` installs the backup script and its secrets (`provision/45-backup.sh`). Default `0`. The schedule is the site's `backup.timer` + `backup.service`. |
+| `BACKUP_KEEP_DAYS` | Age after which old copies are deleted from the bucket. Default `30`. |
+
+Secrets, in `~/.config/codelab/<site>.env` on the workstation: `BACKUP_R2_ACCOUNT_ID`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`, `BACKUP_R2_BUCKET`, `BACKUP_AGE_RECIPIENT`. See [sirw.md](sirw.md#backups) for setup and restore.

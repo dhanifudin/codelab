@@ -2,7 +2,8 @@
 # Push this repo to the VPS and run provision/provision.sh there with sudo.
 # Usage: scripts/provision-remote.sh <ssh-host> <site>      (e.g. codelab spi)
 # Secrets come from ~/.config/codelab/<site>.env (written by setup-github.sh, mode 600):
-# <SITE>_DB_PASSWORD, and for Cloudflare sites CF_CERTBOT_TOKEN (+ optional CERTBOT_EMAIL).
+# <SITE>_DB_PASSWORD, for Cloudflare sites CF_CERTBOT_TOKEN (+ optional CERTBOT_EMAIL), and for
+# sites with BACKUP=1 the five BACKUP_* values (see provision/45-backup.sh).
 # They travel over ssh stdin, never argv.
 set -euo pipefail
 
@@ -11,6 +12,12 @@ SITE=${2:?site}
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ENV_FILE="${CODELAB_ENV_DIR:-$HOME/.config/codelab}/$SITE.env"
 PW_VAR="${SITE^^}_DB_PASSWORD"
+
+BACKUP_VARS="BACKUP_R2_ACCOUNT_ID BACKUP_R2_ACCESS_KEY_ID BACKUP_R2_SECRET_ACCESS_KEY BACKUP_R2_BUCKET BACKUP_AGE_RECIPIENT"
+
+# stored VAR: the value of VAR in the site's env file, or empty.
+# shellcheck source=/dev/null
+stored() { ( [ ! -f "$ENV_FILE" ] || { set -a; . "$ENV_FILE"; }; printf '%s' "${!1:-}" ); }
 
 db_password=; cf_token=; certbot_email=
 if [ -f "$ENV_FILE" ]; then
@@ -25,8 +32,12 @@ fi
 
 rsync -az --delete --exclude .git "$ROOT/" "$HOST:codelab/"
 # Secrets travel over ssh stdin, one per line, never argv.
-printf '%s\n%s\n%s\n' "$db_password" "$cf_token" "$certbot_email" | ssh "$HOST" "
-    IFS= read -r $PW_VAR; IFS= read -r CF_CERTBOT_TOKEN; IFS= read -r CERTBOT_EMAIL
-    export $PW_VAR CF_CERTBOT_TOKEN CERTBOT_EMAIL
-    sudo --preserve-env=$PW_VAR,CF_CERTBOT_TOKEN,CERTBOT_EMAIL bash \"\$HOME/codelab/provision/provision.sh\" '$SITE'
+SECRET_VARS="$PW_VAR CF_CERTBOT_TOKEN CERTBOT_EMAIL $BACKUP_VARS"
+preserve=${SECRET_VARS// /,}
+{
+    printf '%s\n%s\n%s\n' "$db_password" "$cf_token" "$certbot_email"
+    for v in $BACKUP_VARS; do printf '%s\n' "$(stored "$v")"; done
+} | ssh "$HOST" "
+    for v in $SECRET_VARS; do IFS= read -r \"\$v\"; export \"\$v\"; done
+    sudo --preserve-env=$preserve bash \"\$HOME/codelab/provision/provision.sh\" '$SITE'
 "
