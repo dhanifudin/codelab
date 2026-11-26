@@ -1,4 +1,5 @@
-# Sourced by provision.sh. Directories, fpm pool (laravel) or systemd unit (go), nginx vhost, sudoers, deploy key, logrotate.
+# Sourced by provision.sh. Directories, fpm pool (laravel) or systemd unit (go), nginx vhost, timers, sudoers, deploy key,
+# logrotate.
 id "$DEPLOY_USER" >/dev/null 2>&1 || die "user $DEPLOY_USER does not exist"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -135,6 +136,21 @@ if [ "$KIND" = go ]; then
         die "port $APP_PORT is already in use by another process"
     fi
 fi
+
+# --- scheduled jobs: each sites/<site>/<job>.timer with its <job>.service, installed as <site>-<job> ---
+for timer_tpl in "$SITE_DIR"/*.timer; do
+    [ -f "$timer_tpl" ] || continue
+    job="$SITE-$(basename "$timer_tpl" .timer)"
+    CHANGED=0
+    render_template "${timer_tpl%.timer}.service" "$tmp/$job.service"
+    render_template "$timer_tpl" "$tmp/$job.timer"
+    install_if_changed "$tmp/$job.service" "/etc/systemd/system/$job.service" 644
+    install_if_changed "$tmp/$job.timer" "/etc/systemd/system/$job.timer" 644
+    [ "$CHANGED" = 0 ] || systemctl daemon-reload
+    systemctl enable --now "$job.timer" >/dev/null 2>&1 || die "could not enable $job.timer"
+    # A running timer keeps its old schedule until restarted.
+    [ "$CHANGED" = 0 ] || systemctl restart "$job.timer"
+done
 
 # --- sudoers: deploy may reload only its own fpm, or restart only its own unit ---
 CHANGED=0
