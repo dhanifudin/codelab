@@ -1,0 +1,19 @@
+# Rendered by provision/30-site.sh to /etc/systemd/system/@SITE@-files-backup.service.
+# Keeps this server's copy of the uploads current while they are on R2 (does nothing while FILES_DISK=private).
+[Unit]
+Description=@SITE@: copy new uploads from R2 to this server
+After=network-online.target
+Wants=network-online.target
+# Skip quietly until the first deploy.
+ConditionPathExists=@BASE@/current/artisan
+
+[Service]
+Type=oneshot
+User=@DEPLOY_USER@
+Group=@WEB_GROUP@
+WorkingDirectory=@BASE@/current
+ExecStart=/usr/bin/php@PHP_VERSION@ artisan files:backup --no-ansi
+TimeoutStartSec=2h
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true

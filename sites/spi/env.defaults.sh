@@ -13,3 +13,16 @@ export SPI_MAIL_FROM=${SPI_MAIL_FROM:-no-reply@spi.polinema.ac.id}
 export SPI_MAIL_SCAN_AUDIT_TO=${SPI_MAIL_SCAN_AUDIT_TO:-}
 export SPI_NOCAPTCHA_SECRET=${SPI_NOCAPTCHA_SECRET:-}
 export SPI_NOCAPTCHA_SITEKEY=${SPI_NOCAPTCHA_SITEKEY:-}
+
+# Uploaded files stay on this server until SPI_FILES_DISK=r2; then the four R2 values are mandatory.
+# They may be set earlier, so `php artisan files:probe r2` and `files:copy private r2` can run before the switch.
+export SPI_FILES_DISK=${SPI_FILES_DISK:-private}
+export SPI_FILES_KEY_ID=${SPI_FILES_KEY_ID:-}
+export SPI_FILES_SECRET=${SPI_FILES_SECRET:-}
+export SPI_FILES_BUCKET=${SPI_FILES_BUCKET:-}
+export SPI_FILES_ENDPOINT=${SPI_FILES_ENDPOINT:-}
+case $SPI_FILES_DISK in
+    private) ;;
+    r2) ENV_REQUIRED="${ENV_REQUIRED:-} SPI_FILES_KEY_ID SPI_FILES_SECRET SPI_FILES_BUCKET SPI_FILES_ENDPOINT" ;;
+    *) echo "SPI_FILES_DISK must be private or r2" >&2; exit 1 ;;
+esac

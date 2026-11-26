@@ -11,6 +11,7 @@ Everything a site needs lives in `sites/<site>/`. Provisioning and deploys read 
 | `nginx-http.conf`, `nginx-https.conf`, `app.conf` | `provision/30-site.sh` | Optional split used by `TLS=letsencrypt-webroot`: HTTP variant (until a certificate exists), HTTPS variant (after), and the shared `location` blocks installed as `/etc/nginx/snippets/<site>-app.conf`. |
 | `php-fpm-pool.conf` | `provision/30-site.sh` | Laravel sites: dedicated fpm pool on a unix socket. |
 | `systemd.service` | `provision/30-site.sh` | Go sites: the unit file. |
+| `<job>.timer` + `<job>.service` | `provision/30-site.sh` | Optional scheduled jobs, installed and enabled as `<site>-<job>`. |
 | `env.template` | `scripts/render-env.sh` | The application `.env`, with `${<SITE>_VAR}` placeholders. |
 | `env.defaults.sh` | `scripts/render-env.sh` | Optional: defaults and derived values for optional variables (mail driver, URL scheme). |
 | `shared-paths.txt` | `scripts/remote/activate.sh` | Directories that persist across releases (below). |
@@ -60,11 +61,33 @@ Naming: `<SITE>_NAME`, upper case. `render-env.sh` and `_deploy.yml` pass only t
 | `<SITE>_ADMIN_NAME`, `_EMAIL`, `_PASSWORD` (spi also `_USERNAME`) | secret | `setup-github.sh` | first admin at bootstrap |
 | `<SITE>_MAIL_*`, `<SITE>_NOCAPTCHA_*`, ... | secret | you, when needed | optional app settings |
 | `<SITE>_APP_URL` | variable | you, after HTTPS | `APP_URL` and secure cookies |
+| `SPI_FILES_KEY_ID`, `SPI_FILES_SECRET`, `SPI_FILES_BUCKET`, `SPI_FILES_ENDPOINT` | secret | you ([sites/spi file storage](#spi-file-storage-cloudflare-r2)) | spi uploads on Cloudflare R2 |
+| `SPI_FILES_DISK` | variable | you | where spi keeps uploads: `private` (default, the VPS) or `r2` |
 | `CODELAB_DISPATCH_TOKEN` | secret in the **app** repo | you | app repo triggers the deploy |
 | `CF_API_TOKEN` | local only (`cloudflare.env`) | you | `cf-dns.sh` |
 | `CF_CERTBOT_TOKEN` | local only; installed root-only on the VPS | you | DNS-01 challenges |
 
 Local store `~/.config/codelab/`: `<site>.env` (generated secrets, mode 600), `cloudflare.env`, `deploy_key` and `deploy_key.pub`. Override the directory with `CODELAB_ENV_DIR`.
+
+## spi file storage (Cloudflare R2)
+
+Create a bucket with public access off, and an R2 API token with **Object Read & Write** on that bucket only. Set the four secrets one at a time with `gh secret set <name> -R <this repo>` (one line each; the endpoint is `https://<account-id>.r2.cloudflarestorage.com`). Never commit the values.
+
+To switch, on the VPS as the deploy user, in the current release:
+
+1. With `SPI_FILES_DISK=private` deployed: `artisan files:probe r2`, `artisan files:check-references private`, `artisan files:copy private r2 --dry-run`, then without `--dry-run`, then `artisan files:check-references r2`.
+2. Set the variable `SPI_FILES_DISK=r2`, deploy, and run `files:copy private r2` once more for anything uploaded in between.
+
+**Nightly copy back.** `files-backup.timer` runs `artisan files:backup` at 02:15 WIB: new and changed files come back to `shared/storage/app/private`, so a backup of `shared/storage` covers uploads up to the last run. It does nothing while `SPI_FILES_DISK=private`. Nothing is deleted locally, and the previous version of a changed file is kept in `shared/storage/app/private-replaced/<time>/`. R2 therefore does not save disk space on the VPS. Install the timer by provisioning the site, after the app release that has the command is live. Nothing sends an alert when a run fails; check with:
+
+```sh
+systemctl list-timers spi-files-backup.timer
+systemctl status spi-files-backup.service      # last result
+journalctl -u spi-files-backup.service -n 50
+sudo systemctl start spi-files-backup.service  # run now, for example just before taking a backup
+```
+
+To go back: run `artisan files:backup` while still on `r2`, set `private`, deploy, then run `artisan files:copy r2 private` for anything uploaded in between (it only adds missing files and reports differences).
 
 ## `shared-paths.txt`
 
@@ -95,4 +118,4 @@ At each deploy `activate.sh` replaces the release's copy of every listed path wi
 
 ## What provisioning installs on the VPS
 
-`/swapfile` (2 GB), `php<ver>-*` packages, `/etc/php/<ver>/fpm/pool.d/<pool>.conf`, `/etc/nginx/sites-available/<domain>.conf` (+ symlink, + snippets), `/etc/letsencrypt/{cloudflare/<site>.ini,live/<domain>}`, `/etc/codelab/<site>.{conf,shared-paths}`, `/etc/sudoers.d/codelab-<site>` (the deploy user may only reload that fpm or restart that unit), the deploy key in `~deploy/.ssh/authorized_keys` (no pty, no forwarding), `/etc/logrotate.d/php<ver>-fpm-<pool>`, a monit rule for root-disk usage, the database and user, and `/var/www/<domain>/{releases,shared}`.
+`/swapfile` (2 GB), `php<ver>-*` packages, `/etc/php/<ver>/fpm/pool.d/<pool>.conf`, `/etc/nginx/sites-available/<domain>.conf` (+ symlink, + snippets), `/etc/letsencrypt/{cloudflare/<site>.ini,live/<domain>}`, `/etc/codelab/<site>.{conf,shared-paths}`, `/etc/systemd/system/<site>-<job>.{service,timer}` for scheduled jobs, `/etc/sudoers.d/codelab-<site>` (the deploy user may only reload that fpm or restart that unit), the deploy key in `~deploy/.ssh/authorized_keys` (no pty, no forwarding), `/etc/logrotate.d/php<ver>-fpm-<pool>`, a monit rule for root-disk usage, the database and user, and `/var/www/<domain>/{releases,shared}`.
