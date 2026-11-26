@@ -1,0 +1,22 @@
+name: Deploy sirw
+
+on:
+  repository_dispatch:
+    types: [deploy-sirw]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA of dhanifudin/rw05tanjungrejo
+        default: main
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      site: sirw
+      ref: ${{ inputs.ref }}
+    secrets: inherit

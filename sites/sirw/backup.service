@@ -1,0 +1,16 @@
+# Rendered by provision/30-site.sh to /etc/systemd/system/@SITE@-backup.service.
+# The script and its secrets are installed by provision/45-backup.sh.
+[Unit]
+Description=@SITE@: encrypted backup of the database and uploads
+After=network-online.target mariadb.service
+Wants=network-online.target
+# Skip quietly until the backup secrets are installed.
+ConditionPathExists=/etc/codelab/@SITE@.backup.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/codelab/backup.sh @SITE@
+TimeoutStartSec=2h
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true

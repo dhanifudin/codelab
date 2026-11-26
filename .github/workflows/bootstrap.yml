@@ -8,7 +8,7 @@ on:
       site:
         description: Site to bootstrap
         type: choice
-        options: [halokes]
+        options: [halokes, sirw]
         required: true
 
 concurrency:

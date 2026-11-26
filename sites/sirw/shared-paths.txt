@@ -1,0 +1,3 @@
+# path [empty]  --  persistent across releases (shared/). Uploads, logs and the growth
+# reference files all live under storage.
+storage
