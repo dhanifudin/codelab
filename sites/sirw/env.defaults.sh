@@ -1,6 +1,16 @@
 # Sourced by scripts/render-env.sh before rendering. Sets defaults for optional SIRW_* variables.
 export SIRW_APP_URL=${SIRW_APP_URL:-https://rw05tanjungrejo.or.id}
 
+# Without SIRW_MAIL_HOST no mail is sent: signup confirmation and password reset do not work.
+export SIRW_MAIL_HOST=${SIRW_MAIL_HOST:-}
+export SIRW_MAIL_USERNAME=${SIRW_MAIL_USERNAME:-}
+export SIRW_MAIL_PASSWORD=${SIRW_MAIL_PASSWORD:-}
+if [ -n "$SIRW_MAIL_HOST" ]; then
+    export SIRW_MAIL_MAILER=smtp
+    ENV_REQUIRED="${ENV_REQUIRED:-} SIRW_MAIL_USERNAME SIRW_MAIL_PASSWORD"
+else
+    export SIRW_MAIL_MAILER=log
+fi
 export SIRW_MAIL_PORT=${SIRW_MAIL_PORT:-587}
 export SIRW_MAIL_ENCRYPTION=${SIRW_MAIL_ENCRYPTION:-tls}
 export SIRW_MAIL_FROM=${SIRW_MAIL_FROM:-no-reply@rw05tanjungrejo.or.id}

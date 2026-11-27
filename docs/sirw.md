@@ -6,7 +6,7 @@ Laravel 9 on PHP 8.4, local MariaDB, behind Cloudflare (zone we control). Config
 
 1. Cloudflare R2: create a **public** bucket with the custom domain `files.rw05tanjungrejo.or.id`, a **private** bucket without any public access, and a separate **backup** bucket. Create one API token for the two upload buckets and another for the backup bucket (Object Read & Write, limited to those buckets).
 2. Cloudflare Turnstile: create a widget for the domain.
-3. Email: choose an SMTP provider and add its SPF and DKIM records to the zone. Accounts confirm their address by email, so mail must work.
+3. Email: choose an SMTP provider and add its SPF and DKIM records to the zone. This can wait: without `SIRW_MAIL_HOST` the site deploys and sends nothing, so new accounts cannot confirm their address and password reset does not work.
 4. Backup key, on your workstation: `age-keygen -o sirw-backup.key`. Keep that file offline and safe; without it no backup can be read. Only the public key (`age1...`) goes into the configuration.
 5. Allow the app repository for `APP_READ_TOKEN`.
 
@@ -18,7 +18,7 @@ Then set the rest on this repository (`gh secret set NAME --repo dhanifudin/code
 
 | Name | Kind | Required |
 |---|---|---|
-| `SIRW_MAIL_HOST`, `SIRW_MAIL_USERNAME`, `SIRW_MAIL_PASSWORD` | secret | yes |
+| `SIRW_MAIL_HOST`, `SIRW_MAIL_USERNAME`, `SIRW_MAIL_PASSWORD` | secret | no; once the host is set, all three. Deploy again after setting them |
 | `SIRW_MAIL_PORT` (587), `SIRW_MAIL_ENCRYPTION` (tls), `SIRW_MAIL_FROM` | variable | no |
 | `SIRW_TURNSTILE_SITE_KEY`, `SIRW_TURNSTILE_SECRET_KEY` | secret | recommended |
 | `SIRW_FILES_ACCOUNT_ID`, `SIRW_FILES_KEY_ID`, `SIRW_FILES_SECRET`, `SIRW_FILES_PUBLIC_BUCKET`, `SIRW_FILES_PRIVATE_BUCKET`, `SIRW_FILES_PUBLIC_URL` (`https://files.rw05tanjungrejo.or.id`) | secret | only with `SIRW_FILES_DISK=r2` |
@@ -52,7 +52,7 @@ Check afterwards:
 
 - `https://rw05tanjungrejo.or.id/login` answers 200, `/.env` does not.
 - Uploading a gallery image shows it on the public page, and it survives another deploy.
-- A password reset mail arrives.
+- With mail configured, a password reset mail arrives.
 - `ssh codelab 'sudo systemctl start sirw-backup && sudo journalctl -u sirw-backup -n 5'`, then do a test restore (below).
 
 Growth reference files for the child health ranking: copy the four WHO CSV files to `/var/www/rw05tanjungrejo.or.id/shared/storage/app/file_growth/` (owner `deploy`), then run `php8.4 artisan who:import-lms` in `current` as `deploy`.

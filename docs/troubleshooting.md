@@ -25,6 +25,7 @@ Problems met while building this setup, with the cause and the fix. For the norm
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Some requests answer 502, nginx logs `upstream sent too big header` next to `FastCGI sent in stderr` | the pool log `/var/log/php<ver>-fpm-<pool>.log` does not exist, so PHP messages (for example deprecations on PHP 8.4) travel to nginx with the response | Provision the site again (`30-site.sh` creates the file), then `ls -l` it: owned by the pool user. |
 | Checkout step fails: repository not found | `APP_READ_TOKEN` cannot see the private app repo | Add the repo to the token's repository list ([tokens.md](tokens.md)). The secret value does not change. |
 | `required variable <SITE>_... is empty` | a secret is missing or empty | `gh secret list --repo dhanifudin/codelab`; re-run `setup-github.sh <site>` (existing generated values are reused). |
 | `client_payload.sha is not a 40-hex commit id` / `ref contains unexpected characters` | the validation step rejected the input | Dispatch with a full commit sha, or a branch/tag name made of letters, digits, `. _ / -`. |
