@@ -40,6 +40,15 @@ if [ "$KIND" != go ]; then
         log "changed:   php$PHP_VERSION-fpm reloaded"
     fi
 
+    # --- fpm pool log ---
+    # The pool runs as $DEPLOY_USER, which cannot create files in /var/log. Without this file PHP sends its
+    # messages to nginx over FastCGI, where many of them break the response (502 "too big header").
+    fpm_log="/var/log/php${PHP_VERSION}-fpm-${POOL_NAME}.log"
+    if [ ! -e "$fpm_log" ]; then
+        install -m 640 -o "$DEPLOY_USER" -g "$WEB_GROUP" /dev/null "$fpm_log"
+        log "changed:   $fpm_log"
+    fi
+
     # --- fpm log rotation ---
     cat >"$tmp/logrotate" <<EOF
 /var/log/php${PHP_VERSION}-fpm-${POOL_NAME}.log {
